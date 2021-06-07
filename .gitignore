@@ -1,0 +1,5 @@
+/build
+
+*.soli
+_out
+.io_plugin_cache
