@@ -1,39 +1,14 @@
-#include "spritesheet.hpp"
-
 #include <SFML/Graphics.hpp>
 #include <random>
 #include <functional>
 #include <thread>
 #include <chrono>
 #include <iostream>
+#include <numeric>
 
-// dynamic sized matrix
-template<typename T>
-struct Matrix
-{
-	Matrix() = default;
-	Matrix(const sf::Vector2u & _size) : size(_size)
-	{
-		elements.resize(static_cast<size_t>(size.x) * static_cast<size_t>(size.y));
-	}
-
-	const T& operator()(unsigned x, unsigned y) const { return elements[flatIndex(x, y)]; }
-	T& operator()(unsigned x, unsigned y) { return elements[flatIndex(x,y)]; }
-
-	size_t flatIndex(unsigned x, unsigned y) const 
-	{ 
-		return x + static_cast<size_t>(y) * size.x; 
-	}
-
-	sf::Vector2u index(size_t flat) const 
-	{ 
-		return sf::Vector2u(static_cast<unsigned>(flat % size.x), 
-			static_cast<unsigned>(flat / size.y)); 
-	}
-
-	sf::Vector2u size;
-	std::vector<T> elements;
-};
+#include "spritesheet.hpp"
+#include "convolution.hpp"
+#include "vectorext.hpp"
 
 using TransferMap = Matrix<sf::Vector2u>;
 sf::Image applyMap(const TransferMap& _map, const sf::Image& _src)
@@ -52,64 +27,29 @@ sf::Image applyMap(const TransferMap& _map, const sf::Image& _src)
 	return image;
 }
 
-enum struct PaddingMode
+// It must be random access for now
+template<typename It, typename Fn>
+void runMultiThreaded(It _begin, It _end, Fn _fn, size_t _numThreads = 1)
 {
-	Zero,
-};
-
-struct Convolution
-{
-	sf::Vector2u kernelSize;
-	PaddingMode padding;
-};
-
-sf::Color getPixelPadded(const sf::Image& _image, int x, int y)
-{
-	if (x < 0 || y < 0
-		|| x >= static_cast<int>(_image.getSize().x)
-		|| y >= static_cast<int>(_image.getSize().y))
+	if (_numThreads == 1)
+		_fn(_begin, _end);
+	else
 	{
-		return sf::Color(0u);
+		std::vector<std::thread> threads;
+		threads.reserve(_numThreads - 1);
+
+		using DistanceType = decltype(_end - _begin);
+		const DistanceType n = static_cast<DistanceType>(_numThreads);
+		const DistanceType rows = (_end -_begin) / n;
+		for (DistanceType i = 0; i < n - 1; ++i)
+			threads.emplace_back(_fn, i * rows, (i + 1) * rows);
+		_fn((n - 1) * rows, _end);
+
+		for (auto& thread : threads)
+			thread.join();
 	}
-
-	return _image.getPixel(x, y);
 }
 
-
-template<typename T, typename Distance, typename Reduce>
-auto applyConvolution(const sf::Image& _image, const Matrix<T>& _kernel, Distance _dist, Reduce _reduce)
-{
-	using ReturnType = decltype(std::function{ _reduce })::result_type;
-
-	sf::Vector2i kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);
-	auto computeKernel = [&](unsigned x, unsigned y)
-	{
-		ReturnType sum{};
-		for (unsigned i = 0; i < _kernel.size.y; ++i)
-		{
-			const int yInd = static_cast<int>(y + i) - kernelHalf.y;
-			for (unsigned j = 0; j < _kernel.size.x; ++j)
-			{
-				// use padding if index is negative
-				const int xInd = static_cast<int>(x + j) - kernelHalf.x;
-				const auto d = _dist(_kernel.elements[j + i * _kernel.size.x], getPixelPadded(_image, xInd, yInd));
-				sum = _reduce(sum, d);
-			}
-		}
-		return sum;
-	};
-
-	Matrix<ReturnType> result(_image.getSize());
-
-	const sf::Vector2u size = _image.getSize();
-	for (unsigned y = 0; y < size.y; ++y)
-		for (unsigned x = 0; x < size.x; ++x)
-		{
-			result(x,y) = computeKernel(x, y);
-		}
-
-	return result;
-}
 
 // constructs a map that transforms _src to _dst.
 TransferMap constructMap(const sf::Image& _src, const sf::Image& _dst, unsigned _numThreads = 1)
@@ -138,9 +78,9 @@ TransferMap constructMap(const sf::Image& _src, const sf::Image& _dst, unsigned 
 		return c1 == c2 ? 1 : 0;
 	};
 
-	auto sum = [](int a, int b)
+	auto sum = [](const Matrix<int>& result)
 	{
-		return a + b;
+		return std::accumulate(result.elements.begin(), result.elements.end(), 0);
 	};
 
 	TransferMap map(size);
@@ -168,25 +108,65 @@ TransferMap constructMap(const sf::Image& _src, const sf::Image& _dst, unsigned 
 			}
 		}
 	};
-	if(_numThreads == 1)
-		computeRows(0, size.y);
-	else 
-	{
-		std::vector<std::thread> threads;
-		threads.reserve(_numThreads - 1);
 
-		const unsigned rows = size.y / _numThreads;
-		for (unsigned i = 0; i < _numThreads - 1; ++i)
-			threads.emplace_back(computeRows, i * rows, (i + 1) * rows);
-		computeRows((_numThreads - 1) * rows, size.y);
-
-		for (auto& thread : threads)
-			thread.join();
-	}
+	runMultiThreaded(0u, size.y, computeRows, 4);
 
 	return map;
 }
 
+TransferMap constructMapAvg(const sf::Image& _src, const sf::Image& _dst, unsigned _numThreads = 1)
+{
+	const sf::Vector2u size = _src.getSize();
+
+	const sf::Vector2u kernelSize(3, 3);
+	const sf::Vector2i kernelHalf(kernelSize.x / 2, kernelSize.y / 2);
+	Matrix<float> kernel(kernelSize, 1.f);
+	kernel(1, 1) = 100.f;  // the center pixeel always takes precedence
+
+	const float kernelSum = std::accumulate(kernel.elements.begin(), kernel.elements.end(), 0.f);
+
+	auto sample = [](const float f, const sf::Color& color)
+	{
+		return f * toVec(color);
+	};
+
+	auto sum = [kernelSum](const Matrix<sf::Vector3f>& result)
+	{
+		return std::accumulate(result.elements.begin(), result.elements.end(), sf::Vector3f{})
+			/ kernelSum;
+	};
+
+	TransferMap map(size);
+
+	const Matrix<sf::Vector3f> dstAvg = applyConvolution(_dst, kernel, sample, sum);
+	const Matrix<sf::Vector3f> srcAvg = applyConvolution(_src, kernel, sample, sum);
+
+	auto computeRows = [&](unsigned begin, unsigned end)
+	{
+		for (unsigned y = begin; y < end; ++y)
+		{
+			for (unsigned x = 0; x < size.x; ++x)
+			{
+				sf::Vector2u pos(x, y);
+				float min = math::distSq(dstAvg(x,y), srcAvg(x,y));
+				for (size_t i = 0; i < dstAvg.elements.size(); ++i)
+				{
+					if (float d = math::distSq(dstAvg.elements[i], srcAvg(x,y)); d < min)
+					{
+						min = d;
+						pos = dstAvg.index(i);
+					}
+				}
+				map(x, y) = pos;
+			}
+		}
+	};
+	runMultiThreaded(0u, size.y, computeRows);
+
+	return map;
+}
+
+// compute the L1 difference between a and b
 sf::Image imageDifference(const sf::Image& a, const sf::Image& b)
 {
 	sf::Image difImage;
@@ -211,6 +191,7 @@ sf::Image imageDifference(const sf::Image& a, const sf::Image& b)
 	return difImage;
 }
 
+// direct visualisation of a TransferMap
 sf::Image distanceMap(const TransferMap& transferMap)
 {
 	sf::Image distImage;
