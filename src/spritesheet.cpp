@@ -16,7 +16,41 @@ SpriteSheet::SpriteSheet(const std::string& _file, int _numFrames)
 	}
 }
 
-void SpriteSheet::save(const std::string& _file) const
+std::pair<sf::Vector2u, sf::Vector2u> cropRect(const sf::Image& _image)
+{
+	const sf::Vector2u size = _image.getSize();
+	sf::Vector2u min = size;
+	sf::Vector2u max{};
+
+	for (unsigned y = 0; y < size.y; ++y)
+	{
+		for (unsigned x = 0; x < size.x; ++x)
+		{
+			if (_image.getPixel(x, y) != sf::Color::Transparent)
+			{
+				if (min.x > x) min.x = x;
+				if (min.y > y) min.y = y;
+				if (max.x < x) max.x = x;
+				if (max.y < y) max.y = y;
+			}
+		}
+	}
+
+	return { min, max };
+}
+
+void SpriteSheet::crop(const sf::IntRect& _rect)
+{
+for (auto& frame : frames)
+	{
+		sf::Image croped;
+		croped.create(_rect.width, _rect.height);
+		croped.copy(frame, 0u, 0u, _rect);
+		frame = croped;
+	}
+}
+
+sf::Image SpriteSheet::getCombined() const
 {
 	const sf::Vector2u size = frames[0].getSize();
 	const unsigned numFrames = static_cast<unsigned>(frames.size());
@@ -26,5 +60,37 @@ void SpriteSheet::save(const std::string& _file) const
 	{
 		combined.copy(frames[i], i * size.x, 0);
 	}
+
+	return combined;
+}
+
+void SpriteSheet::save(const std::string& _file) const
+{
+	const sf::Image combined = getCombined();
 	combined.saveToFile(_file);
+}
+
+sf::IntRect computeMinRect(std::vector<SpriteSheet*> _sheets, unsigned _minBorder)
+{
+	sf::Vector2u rectMin = _sheets.front()->frames.front().getSize();
+	sf::Vector2u rectMax{};
+
+	for (auto& sheet : _sheets)
+	{
+		for (const auto& frame : sheet->frames)
+		{
+			auto [min, max] = cropRect(frame);
+
+			if (rectMin.x > min.x) rectMin.x = min.x;
+			if (rectMin.y > min.y) rectMin.y = min.y;
+			if (rectMax.x < max.x) rectMax.x = max.x;
+			if (rectMax.y < max.y) rectMax.y = max.y;
+		}
+	}
+
+	const sf::Vector2u pos(rectMin.x > _minBorder ? rectMin.x - _minBorder : 0u, 
+		rectMin.y > _minBorder ? rectMin.y - _minBorder : 0u);
+	const sf::Vector2u newSize = rectMax - pos + sf::Vector2u(_minBorder, _minBorder);
+	
+	return sf::IntRect(sf::Vector2i(pos), sf::Vector2i(newSize));
 }
