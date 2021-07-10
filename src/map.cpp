@@ -3,6 +3,7 @@
 #include "math/vectorext.hpp"
 #include "utils.hpp"
 #include "spritesheet.hpp"
+#include "colors.hpp"
 
 #include <numeric>
 
@@ -161,21 +162,51 @@ sf::Image distanceMap(const TransferMap& transferMap)
 	return distImage;
 }
 
-sf::Image colorMap(const TransferMap& transferMap)
+std::pair<sf::Uint8, sf::Uint8> minMaxColor(const sf::Image& _reference)
+{
+	const sf::Vector2u size = _reference.getSize();
+	sf::Uint8 min = 255;
+	sf::Uint8 max = 0;
+
+	for (unsigned y = 0; y < size.y; ++y)
+		for (unsigned x = 0; x < size.x; ++x)
+		{
+			const sf::Color color = _reference.getPixel(x, y);
+			if (color.a == 0) continue;
+
+			const sf::Uint8 avg = average(color);
+			if (min > avg) min = avg;
+			if (max < avg) max = avg;
+		}
+
+	return { min,max };
+}
+
+sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference)
 {
 	sf::Image prototypeImg;
 	const sf::Vector2u size = transferMap.size;
 	prototypeImg.create(size.x, size.y);
+
+	auto [minCol, maxCol] = minMaxColor(_reference);
+	const float range = static_cast<float>(maxCol - minCol);
 
 	for (unsigned y = 0; y < size.y; ++y)
 	{
 		for (unsigned x = 0; x < size.x; ++x)
 		{
 			sf::Color color;
-			color.g = static_cast<sf::Uint8>(std::abs(static_cast<float>(x) / size.x) * 255.f);
-			color.b = static_cast<sf::Uint8>(std::abs(static_cast<float>(y) / size.y) * 255.f);
-			color.r = 128;
-			color.a = 255;
+			const float dx = std::abs(static_cast<float>(x) / size.x);
+			const float dy = std::abs(static_cast<float>(y) / size.y);
+		/*	color.g = static_cast<sf::Uint8>(dx * 255.f);
+			color.b = static_cast<sf::Uint8>(dy * 255.f);
+			color.r = average(_reference.getPixel(x, y));
+			color.a = 255;*/
+			const float v = (static_cast<int>(average(_reference.getPixel(x, y))) - minCol) / range;
+			constexpr float t = 0.5f;
+			const float dz = v >= 0.f ? v * t + 1.f - t : (1.f - t) * 0.5f;
+			color = HSVtoRGB(HSV{ dx * 360.f, dy, dz });
+
 			prototypeImg.setPixel(x, y, color);
 		}
 	}

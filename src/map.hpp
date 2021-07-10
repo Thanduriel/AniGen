@@ -16,4 +16,4 @@ TransferMap constructMapAvg(const sf::Image& _src, const sf::Image& _dst, unsign
 sf::Image distanceMap(const TransferMap& _transferMap);
 
 // visualize by applying the map to a high constrast map
-sf::Image colorMap(const TransferMap& _transferMap);
+sf::Image colorMap(const TransferMap& _transferMap, const sf::Image& _reference);

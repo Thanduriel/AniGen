@@ -59,8 +59,8 @@ int main(int argc, char* argv[])
 	dif.frames.emplace_back(imageDifference(validation.frames[0], output.frames[0]));
 	for (int i = 1; i < 8; ++i)
 	{
-		const TransferMap map = constructMapAvg(reference.frames[0], reference.frames[i], 4);
-		colorMap(map).saveToFile("distance" + std::to_string(i) + ".png");
+		const TransferMap map = constructMap(reference.frames[0], reference.frames[i], 4);
+		colorMap(map, reference.frames[0]).saveToFile("distance" + std::to_string(i) + ".png");
 	//	distanceMap(map).saveToFile("distance" + std::to_string(i) + ".png");
 		output.frames.emplace_back(applyMap(map, validation.frames[i]));
 		dif.frames.emplace_back(imageDifference(validation.frames[i], output.frames.back()));
