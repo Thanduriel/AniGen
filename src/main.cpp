@@ -1,6 +1,7 @@
 #include <random>
 #include <chrono>
 #include <iostream>
+#include <thread>
 
 #include "spritesheet.hpp"
 #include "map.hpp"
@@ -47,6 +48,10 @@ int main(int argc, char* argv[])
 	if (argc > 3)
 		numFrames = std::stoi(argv[3]);
 
+	const bool useBlur = argc > 4 && !strcmp(argv[4], "blur");
+
+	const unsigned numThreads = std::thread::hardware_concurrency();
+
 	SpriteSheet reference(refName, numFrames);
 	SpriteSheet validation(targetName, numFrames);
 	const auto minRect = computeMinRect({ &reference,&validation }, 3u);
@@ -59,7 +64,8 @@ int main(int argc, char* argv[])
 	dif.frames.emplace_back(imageDifference(validation.frames[0], output.frames[0]));
 	for (int i = 1; i < 8; ++i)
 	{
-		const TransferMap map = constructMap(reference.frames[0], reference.frames[i], 4);
+		const TransferMap map = useBlur ? constructMapAvg(reference.frames[0], reference.frames[i], numThreads)
+			: constructMap(reference.frames[0], reference.frames[i], numThreads);
 		colorMap(map, reference.frames[0]).saveToFile("distance" + std::to_string(i) + ".png");
 	//	distanceMap(map).saveToFile("distance" + std::to_string(i) + ".png");
 		output.frames.emplace_back(applyMap(map, validation.frames[i]));
