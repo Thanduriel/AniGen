@@ -6,8 +6,14 @@ namespace math {
 	struct Matrix
 	{
 		Matrix() = default;
-		Matrix(const sf::Vector2u& _size, const T& _default = {}) : size(_size)
+		Matrix(const sf::Vector2u& _size, const T& _default = {})
 		{
+			resize(_size);
+		}
+
+		void resize(const sf::Vector2u& _size, const T& _default = {})
+		{
+			size = _size;
 			elements.resize(static_cast<size_t>(size.x) * static_cast<size_t>(size.y), _default);
 		}
 

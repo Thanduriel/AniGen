@@ -2,9 +2,12 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <fstream>
 
+#include <args.hxx>
 #include "spritesheet.hpp"
 #include "map.hpp"
+#include "tests/tests.hpp"
 
 using namespace math;
 
@@ -35,24 +38,70 @@ sf::Image imageDifference(const sf::Image& a, const sf::Image& b)
 
 int main(int argc, char* argv[])
 {
+	args::ArgumentParser parser("Sprite animation generator.");
+	
+	args::Group commands(parser, "commands");
+	args::Command applyMode(commands, "apply", "apply an existing map to a sprite");
+	args::Command createMode(commands, "create", "create a map from reference sprites");
+	
+	args::Group arguments("arguments");
+	args::HelpFlag help(arguments, "help", "display this help menu", { 'h', "help" });
+	args::ValueFlag<int> frames(arguments, "num_frames", "number of frames in the sprite", { 'n', "num_frames" }, 8);
+	args::ValueFlag<unsigned> threads(arguments, "threads", "maximum number of threads to use", { 't', "num_threads" }, std::thread::hardware_concurrency());
+	args::ValueFlagList<std::string> inputs(arguments, "inputs", "the input sprites", { 'i', "inputs" });
+	args::GlobalOptions globals(parser, arguments);
+	try
+	{
+		parser.ParseCLI(argc, argv);
+	}
+	catch (const args::Help&)
+	{
+		std::cout << parser;
+		return 0;
+	}
+	catch (const args::ParseError& e)
+	{
+		std::cerr << e.what() << std::endl;
+		std::cerr << parser;
+		return 1;
+	}
+	catch (const args::ValidationError& e)
+	{
+		std::cerr << e.what() << std::endl;
+		std::cerr << parser;
+		return 1;
+	}
+
 	auto start = std::chrono::high_resolution_clock::now();
 
-	std::string refName = "../Sprites/HumanMale_ApronChest.png";
-	std::string targetName = "../Sprites/HumanMale_FamilyChest_Medium.png";
-	int numFrames = 8;
-	if (argc > 2)
+//	const std::string refName = "../Sprites/HumanMale_ApronChest.png";
+//	const std::string targetName = "../Sprites/HumanMale_FamilyChest_Medium.png";
+	const int numFrames = args::get(frames);
+	const unsigned numThreads = args::get(threads);
+	const bool useBlur = true || argc > 4 && !strcmp(argv[4], "blur");
+
+	Tests tests; 
+	tests.run();
+	if (createMode)
 	{
-		refName = argv[1];
-		targetName = argv[2];
+		std::vector<SpriteSheet> spriteSheets;
+		auto names = args::get(inputs);
+		spriteSheets.reserve(names.size());
+		for (const auto& name : names)
+			spriteSheets.emplace_back(name, numFrames);
+
+		auto reference = spriteSheets.front();
+		for (int i = 1; i < numFrames; ++i)
+		{
+			const TransferMap map = useBlur ? constructMapAvg(reference.frames[0], reference.frames[i], numThreads)
+				: constructMap(reference.frames[0], reference.frames[i], numThreads);
+
+			std::ofstream file("transferMap" + std::to_string(i) + ".txt");
+			file << map;
+		}
 	}
-	if (argc > 3)
-		numFrames = std::stoi(argv[3]);
 
-	const bool useBlur = argc > 4 && !strcmp(argv[4], "blur");
-
-	const unsigned numThreads = std::thread::hardware_concurrency();
-
-	SpriteSheet reference(refName, numFrames);
+/*	SpriteSheet reference(refName, numFrames);
 	SpriteSheet validation(targetName, numFrames);
 	const auto minRect = computeMinRect({ &reference,&validation }, 3u);
 	reference.crop(minRect);
@@ -79,9 +128,9 @@ int main(int argc, char* argv[])
 		{
 			transferMap.elements[x + idy] = sf::Vector2u(x, frameSize.y - y - 1);
 		}
-	}*/
+	}
 	dif.save("dif.png");
-	output.save("output.png");
+	output.save("output.png");*/
 
 	auto end = std::chrono::high_resolution_clock::now();
 	std::cout << "Computation took " << std::chrono::duration<double>(end - start).count() << "s" << std::endl;

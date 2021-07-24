@@ -15,5 +15,9 @@ TransferMap constructMapAvg(const sf::Image& _src, const sf::Image& _dst, unsign
 // direct visualisation of a TransferMap wher distances are color coded
 sf::Image distanceMap(const TransferMap& _transferMap);
 
-// visualize by applying the map to a high constrast map
-sf::Image colorMap(const TransferMap& _transferMap, const sf::Image& _reference);
+// visualize by applying the map to a high constrast image
+sf::Image colorMap(const TransferMap& _transferMap, const sf::Image& _reference, bool _rgb = true);
+
+// serialization
+std::ostream& operator<<(std::ostream& _out, const TransferMap& _transferMap);
+std::istream& operator>>(std::istream& _in, TransferMap& _transferMap);

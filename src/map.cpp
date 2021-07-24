@@ -6,6 +6,7 @@
 #include "colors.hpp"
 
 #include <numeric>
+#include <iostream>
 
 using namespace math;
 
@@ -162,7 +163,7 @@ sf::Image distanceMap(const TransferMap& transferMap)
 	return distImage;
 }
 
-std::pair<sf::Uint8, sf::Uint8> minMaxColor(const sf::Image& _reference)
+std::pair<sf::Uint8, sf::Uint8> minMaxBrightness(const sf::Image& _reference)
 {
 	const sf::Vector2u size = _reference.getSize();
 	sf::Uint8 min = 255;
@@ -182,35 +183,84 @@ std::pair<sf::Uint8, sf::Uint8> minMaxColor(const sf::Image& _reference)
 	return { min,max };
 }
 
-sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference)
+sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference, bool _rgb)
 {
 	sf::Image prototypeImg;
 	const sf::Vector2u size = transferMap.size;
 	prototypeImg.create(size.x, size.y);
 
-	auto [minCol, maxCol] = minMaxColor(_reference);
+	auto [minCol, maxCol] = minMaxBrightness(_reference);
 	const float range = static_cast<float>(maxCol - minCol);
+
+	auto makeColorHSV = [=](const sf::Color& srcCol, float dx, float dy) 
+	{
+		const float v = (static_cast<int>(average(srcCol)) - minCol) / range;
+		constexpr float t = 0.5f;
+		const float dz = v >= 0.f ? v * t + 1.f - t : (1.f - t) * 0.5f;
+		return HSVtoRGB(HSV{ dx * 360.f, dy, dz });
+	};
+
+	auto makeColorRGB = [=](const sf::Color& srcCol, float dx, float dy)
+	{
+		sf::Color color;
+		color.g = static_cast<sf::Uint8>(dx * 255.f);
+		color.b = static_cast<sf::Uint8>(dy * 255.f);
+		color.r = average(srcCol);
+		color.a = 255;
+		return color;
+	};
 
 	for (unsigned y = 0; y < size.y; ++y)
 	{
 		for (unsigned x = 0; x < size.x; ++x)
 		{
-			sf::Color color;
+			const sf::Color color = _reference.getPixel(x, y);
 			const float dx = std::abs(static_cast<float>(x) / size.x);
 			const float dy = std::abs(static_cast<float>(y) / size.y);
-		/*	color.g = static_cast<sf::Uint8>(dx * 255.f);
-			color.b = static_cast<sf::Uint8>(dy * 255.f);
-			color.r = average(_reference.getPixel(x, y));
-			color.a = 255;*/
-			const float v = (static_cast<int>(average(_reference.getPixel(x, y))) - minCol) / range;
-			constexpr float t = 0.5f;
-			const float dz = v >= 0.f ? v * t + 1.f - t : (1.f - t) * 0.5f;
-			color = HSVtoRGB(HSV{ dx * 360.f, dy, dz });
 
-			prototypeImg.setPixel(x, y, color);
+			prototypeImg.setPixel(x, y, _rgb ? makeColorHSV(color, dx,dy) 
+				: makeColorRGB(color,dx,dy));
 		}
 	}
 
 	sf::Image result = applyMap(transferMap, prototypeImg);
 	return SpriteSheet({ std::move(prototypeImg), std::move(result) }).getCombined();
+}
+
+std::ostream& operator<<(std::ostream& _out, const TransferMap& _transferMap)
+{
+	_out << _transferMap.size.x << " " << _transferMap.size.y << "\n";
+	for (unsigned y = 0; y < _transferMap.size.y; ++y)
+	{
+		for (unsigned x = 0; x < _transferMap.size.y; ++x)
+		{
+			const auto vec = _transferMap(x, y);
+			_out << vec.x << " " << vec.y << "; ";
+		}
+		_out << "\n";
+	}
+
+	return _out;
+}
+
+std::istream& operator>>(std::istream& _in, TransferMap& _transferMap)
+{
+	sf::Vector2u vec;
+	_in >> vec.x >> vec.y;
+	_transferMap.resize(vec);
+
+	for (auto& el : _transferMap.elements)
+	{
+		if (_in.eof())
+		{
+			std::cerr << "[Warning] Expected more elements in transfer map.\n";
+			break;
+		}
+
+		char delim;
+		_in >> vec.x >> vec.y >> delim;
+		el = vec;
+	}
+
+	return _in;
 }
