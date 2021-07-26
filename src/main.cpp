@@ -93,8 +93,8 @@ int main(int argc, char* argv[])
 		auto reference = spriteSheets.front();
 		for (int i = 1; i < numFrames; ++i)
 		{
-			const TransferMap map = useBlur ? constructMapAvg(reference.frames[0], reference.frames[i], numThreads)
-				: constructMap(reference.frames[0], reference.frames[i], numThreads);
+			const TransferMap map = useBlur ? constructMap(BlurDistance(reference.frames[0], reference.frames[i]), numThreads)
+				: constructMap(KernelDistance(reference.frames[0], reference.frames[i]), numThreads);
 
 			std::ofstream file("transferMap" + std::to_string(i) + ".txt");
 			file << map;

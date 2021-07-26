@@ -23,4 +23,10 @@ namespace math {
 
 		return dot(dif, dif);
 	}
+
+	template<typename T>
+	T dist(const sf::Vector3<T>& a, const sf::Vector3<T>& b)
+	{
+		return std::sqrt(distsq(a, b));
+	}
 }

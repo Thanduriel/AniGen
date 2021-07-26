@@ -4,9 +4,9 @@
 
 struct HSV
 {
-	float h;       // angle in degrees
-	float s;       // a fraction between 0 and 1
-	float v;       // a fraction between 0 and 1
+	float h;	// hue - angle in degrees
+	float s;	// saturation - a fraction between 0 and 1
+	float v;	// brightness - a fraction between 0 and 1
 };
 
 sf::Color HSVtoRGB(const HSV& _color);
