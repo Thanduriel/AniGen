@@ -10,16 +10,14 @@ sf::Color HSVtoRGB(const HSV& in)
 		out.b = static_cast<sf::Uint8>(in.v * 255);
 		return out;
 	}
-	float hh = in.h;
-	if (hh >= 360.0) hh = 0.f;
-	hh /= 60.0f;
+	const float hh = std::fmod(in.h, 360.f) / 60.f;
 	const int i = static_cast<int>(hh);
-	float ff = hh - i;
+	const float ff = hh - i;
 
 	const sf::Uint8 v = static_cast<sf::Uint8>(in.v * 255);
-	const sf::Uint8 p = static_cast<sf::Uint8>(in.v * (1.0 - in.s) * 255);
-	const sf::Uint8 q = static_cast<sf::Uint8>(in.v * (1.0 - (in.s * ff)) * 255);
-	const sf::Uint8 t = static_cast<sf::Uint8>(in.v * (1.0 - (in.s * (1.0 - ff))) * 255);
+	const sf::Uint8 p = static_cast<sf::Uint8>(in.v * (1.f - in.s) * 255);
+	const sf::Uint8 q = static_cast<sf::Uint8>(in.v * (1.f - (in.s * ff)) * 255);
+	const sf::Uint8 t = static_cast<sf::Uint8>(in.v * (1.f - (in.s * (1.f - ff))) * 255);
 
 	switch (i) {
 	case 0:

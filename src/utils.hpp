@@ -1,6 +1,7 @@
 #pragma once
 
 #include <thread>
+#include <string_view>
 
 namespace utils {
 	// @param Fn function that applies a function to the range (It,It)
@@ -25,5 +26,17 @@ namespace utils {
 			for (auto& thread : threads)
 				thread.join();
 		}
+	}
+
+	struct SplitNameResult
+	{
+		std::string_view name;
+		std::string_view animation;
+	};
+	inline SplitNameResult splitName(std::string_view str)
+	{
+		auto begin = str.find_first_of("_");
+		auto end = str.find_last_of(".");
+		return { str.substr(0, begin), str.substr(begin + 1, end - begin) };
 	}
 }

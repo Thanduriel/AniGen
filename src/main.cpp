@@ -3,11 +3,12 @@
 #include <iostream>
 #include <thread>
 #include <fstream>
+#include <filesystem>
 
 #include <args.hxx>
 #include "spritesheet.hpp"
 #include "map.hpp"
-#include "tests/tests.hpp"
+#include "pixelsimilarity.hpp"
 
 using namespace math;
 
@@ -46,9 +47,13 @@ int main(int argc, char* argv[])
 	
 	args::Group arguments("arguments");
 	args::HelpFlag help(arguments, "help", "display this help menu", { 'h', "help" });
-	args::ValueFlag<int> frames(arguments, "num_frames", "number of frames in the sprite", { 'n', "num_frames" }, 8);
-	args::ValueFlag<unsigned> threads(arguments, "threads", "maximum number of threads to use", { 't', "num_threads" }, std::thread::hardware_concurrency());
-	args::ValueFlagList<std::string> inputs(arguments, "inputs", "the input sprites", { 'i', "inputs" });
+	args::ValueFlag<int> framesInput(arguments, "num_input_frames", "number of frames in the input sprites", { 'n', "input_frames" }, 1);
+	args::ValueFlag<int> framesTarget(arguments, "num_target_frames", "number of frames in the target sprites", { 'm', "target_frames" }, 1);
+	args::ValueFlag<int> refFrame(arguments, "reference_frame", "which frame to use as reference in the input sprites; only necessary if input_frames > 0", { 'r', "ref_frame" }, 0);
+	args::ValueFlag<unsigned> threads(arguments, "threads", "maximum number of threads to use", { 'j', "num_threads" }, std::thread::hardware_concurrency());
+	args::ValueFlagList<std::string> inputs(arguments, "inputs", "the reference input sprites", { 'i', "inputs" });
+	args::ValueFlagList<std::string> targets(arguments, "targets", "either the target sprites for the maps to (create) or the transfer maps to (apply)", { 't', "targets" });
+	args::ValueFlag<std::string> outputName(arguments, "output", "name for the map to (create) or the object for (apply) without ending", { 'o', "output" });
 	args::GlobalOptions globals(parser, arguments);
 	try
 	{
@@ -74,30 +79,93 @@ int main(int argc, char* argv[])
 
 	auto start = std::chrono::high_resolution_clock::now();
 
-//	const std::string refName = "../Sprites/HumanMale_ApronChest.png";
-//	const std::string targetName = "../Sprites/HumanMale_FamilyChest_Medium.png";
-	const int numFrames = args::get(frames);
 	const unsigned numThreads = args::get(threads);
 	const bool useBlur = true || argc > 4 && !strcmp(argv[4], "blur");
 
-	Tests tests; 
-	tests.run();
+	std::vector<sf::Image> referenceSprites;
+	const auto inputNames = args::get(inputs);
+	referenceSprites.reserve(inputNames.size());
+	for (const auto& name : inputNames)
+	{
+		SpriteSheet sheet(name, args::get(framesInput));
+		referenceSprites.emplace_back(sheet.frames[args::get(refFrame)]);
+	}
+	const auto targetNames = args::get(targets);
+
 	if (createMode)
 	{
-		std::vector<SpriteSheet> spriteSheets;
-		auto names = args::get(inputs);
-		spriteSheets.reserve(names.size());
-		for (const auto& name : names)
-			spriteSheets.emplace_back(name, numFrames);
-
-		auto reference = spriteSheets.front();
-		for (int i = 1; i < numFrames; ++i)
+		if (targetNames.size() != referenceSprites.size())
 		{
-			const TransferMap map = useBlur ? constructMap(BlurDistance(reference.frames[0], reference.frames[i]), numThreads)
-				: constructMap(KernelDistance(reference.frames[0], reference.frames[i]), numThreads);
+			std::cerr << "[Error] The number of inputs (" << referenceSprites.size()
+				<< ") and the number of targets (" << targetNames.size() << ") need to be equal.";
+			return 1;
+		}
 
-			std::ofstream file("transferMap" + std::to_string(i) + ".txt");
+	//	auto [_, animationName] = utils::splitName(targetNames[0]);
+	/*	for (size_t i = 01; i < targetNames.size(); ++i)
+		{
+		//	auto [__, aniName] = utils::splitName(targetNames[0]);
+			if (targetNames[i].find(animationName) == std::string::npos)
+				std::cout << "[Warning] Encountered inconsistent animation names, could not find \""
+				<< animationName << "\" in \""
+				<< targetNames[i] << "\". All target sheets should be of the same animation";
+		}*/
+
+		const int numFrames = args::get(framesTarget);
+		std::vector<SpriteSheet> targetSheets;
+		targetSheets.reserve(targetNames.size());
+		for (auto& name : targetNames)
+			targetSheets.emplace_back(name, numFrames);
+
+		const std::string mapName = args::get(outputName);
+		std::ofstream file(mapName + ".txt");
+		for (int i = 0; i < numFrames; ++i)
+		{
+			std::vector<KernelDistance> distances;
+			for(size_t j = 0; j < targetSheets.size(); ++j)
+				distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], sf::Vector2u(1, 1));
+			const TransferMap map = constructMap(GroupDistance(std::move(distances)), numThreads);
+			//constructMap(KernelDistance(reference.frames[0], reference.frames[i]), numThreads);
+
 			file << map;
+		}
+	}
+	else if (applyMode)
+	{
+		std::vector<std::vector<TransferMap>> transferMaps;
+		transferMaps.reserve(targetNames.size());
+		for (auto& name : targetNames)
+		{
+			auto& sheetMaps = transferMaps.emplace_back();
+			std::ifstream file(name);
+			while (file)
+			{
+				sheetMaps.emplace_back();
+				file >> sheetMaps.back();
+			}
+			// an empty map is read before encountering eof
+			if (sheetMaps.back().size.x == 0)
+				sheetMaps.pop_back();
+		}
+
+		for (size_t i = 0; i < referenceSprites.size(); ++i)
+		{
+			const sf::Image& reference = referenceSprites[i];
+		//	const auto [baseName, _] = utils::splitName(inputNames[i]);
+
+			for (size_t j = 0; j < transferMaps.size(); ++j)
+			{
+				auto& mapSheet = transferMaps[j];
+				SpriteSheet sheet;
+				for (TransferMap& map : mapSheet)
+					sheet.frames.emplace_back(applyMap(map, reference));
+				
+				const std::filesystem::path mapName = targetNames[j];
+			// const auto [_, animationName] = utils::splitName(targetNames[j]);
+			//	sheet.save(std::string(baseName) + "_" + std::string(animationName) + ".png");
+				const std::string objectName = args::get(outputName);
+				sheet.save(objectName + "_" + mapName.stem().string() + ".png");
+			}
 		}
 	}
 

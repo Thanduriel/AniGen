@@ -1,6 +1,8 @@
 #pragma once
 
 #include <SFML/System/Vector2.hpp>
+#include <cassert>
+#include <iostream>
 
 namespace math {
 	// dynamic sized matrix
@@ -10,11 +12,10 @@ namespace math {
 		Matrix() = default;
 		Matrix(const sf::Vector2u& _size, const T& _default = {})
 		{
-			resize(_size);
+			resize(_size, _default);
 		}
 
-		template<typename Stream>
-		Matrix(Stream& _stream)
+		explicit Matrix(std::istream& _stream)
 		{
 			load(_stream);
 		}
@@ -79,5 +80,40 @@ namespace math {
 		sf::Vector2u size;
 		std::vector<T> elements;
 	};
+
+	template<typename T>
+	Matrix<T> operator+(const Matrix<T>& lhs, const Matrix<T>& rhs)
+	{
+		assert(lhs.size == rhs.size);
+
+		Matrix<T> result = lhs;
+		for (size_t i = 0; i < lhs.elements.size(); ++i)
+			result[i] += rhs[i];
+
+		return result;
+	}
+
+	template<typename T>
+	Matrix<T>& operator+=(Matrix<T>& lhs, const Matrix<T>& rhs)
+	{
+		assert(lhs.size == rhs.size);
+
+		for (size_t i = 0; i < lhs.elements.size(); ++i)
+			lhs[i] += rhs[i];
+
+		return lhs;
+	}
+
+	template<typename T>
+	Matrix<T> operator-(const Matrix<T>& lhs, const Matrix<T>& rhs)
+	{
+		assert(lhs.size == rhs.size);
+
+		Matrix<T> result = lhs;
+		for (size_t i = 0; i < lhs.elements.size(); ++i)
+			result[i] -= rhs[i];
+
+		return result;
+	}
 
 }
