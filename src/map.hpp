@@ -48,6 +48,10 @@ TransferMap constructMap(const DistanceMeasure& _distanceMeasure,
 // direct visualization of a TransferMap where distances are color coded
 sf::Image distanceMap(const TransferMap& _transferMap);
 
+// Create an image with a color gradient in both x and y direction such that each pixel
+// has a unique color.
+// @param _reference An image that determines the size and is integrated to be somewhat visible.
+sf::Image makeColorGradientImage(const sf::Image& _reference, bool _rgb = true);
 // visualize by applying the map to a high contrast image
 sf::Image colorMap(const TransferMap& _transferMap, const sf::Image& _reference, bool _rgb = true);
 

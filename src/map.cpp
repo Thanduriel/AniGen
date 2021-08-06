@@ -66,16 +66,16 @@ std::pair<sf::Uint8, sf::Uint8> minMaxBrightness(const sf::Image& _reference)
 	return { min,max };
 }
 
-sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference, bool _rgb)
+sf::Image makeColorGradientImage(const sf::Image& _reference, bool _rgb)
 {
 	sf::Image prototypeImg;
-	const sf::Vector2u size = transferMap.size;
+	const sf::Vector2u size = _reference.getSize();
 	prototypeImg.create(size.x, size.y);
 
 	auto [minCol, maxCol] = minMaxBrightness(_reference);
 	const float range = static_cast<float>(maxCol - minCol);
 
-	auto makeColorHSV = [=](const sf::Color& srcCol, float dx, float dy) 
+	auto makeColorHSV = [=](const sf::Color& srcCol, float dx, float dy)
 	{
 		const float v = (static_cast<int>(average(srcCol)) - minCol) / range;
 		constexpr float t = 0.5f;
@@ -89,7 +89,7 @@ sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference, 
 		color.g = static_cast<sf::Uint8>(dx * 255.f);
 		color.b = static_cast<sf::Uint8>(dy * 255.f);
 		color.r = average(srcCol);
-		color.a = 255;
+		color.a = static_cast<sf::Uint8>(255);
 		return color;
 	};
 
@@ -97,15 +97,24 @@ sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference, 
 	{
 		for (unsigned x = 0; x < size.x; ++x)
 		{
+			if (x == 34 && y == 24)
+				int brk = 42;
 			const sf::Color color = _reference.getPixel(x, y);
 			const float dx = std::abs(static_cast<float>(x) / size.x);
 			const float dy = std::abs(static_cast<float>(y) / size.y);
 
-			prototypeImg.setPixel(x, y, _rgb ? makeColorHSV(color, dx,dy) 
-				: makeColorRGB(color,dx,dy));
+		//	prototypeImg.setPixel(x, y, color);
+			prototypeImg.setPixel(x, y, _rgb ? makeColorRGB(color, dx, dy)
+				: makeColorHSV(color, dx, dy));
 		}
 	}
 
+	return prototypeImg;
+}
+
+sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference, bool _rgb)
+{
+	sf::Image prototypeImg = makeColorGradientImage(_reference, _rgb);
 	sf::Image result = applyMap(transferMap, prototypeImg);
 	return SpriteSheet({ std::move(prototypeImg), std::move(result) }).getCombined();
 }
@@ -113,15 +122,15 @@ sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference, 
 // ************************************************************* //
 std::ostream& operator<<(std::ostream& _out, const TransferMap& _transferMap)
 {
-	_out << _transferMap.size.x << " " << _transferMap.size.y;
+	_out << _transferMap.size.x << " " << _transferMap.size.y << "\n";
 	for (unsigned y = 0; y < _transferMap.size.y; ++y)
 	{
-		_out << "\n";
 		for (unsigned x = 0; x < _transferMap.size.y; ++x)
 		{
 			const auto vec = _transferMap(x, y);
 			_out << vec.x << " " << vec.y << "; ";
 		}
+		_out << "\n";
 	}
 
 	return _out;

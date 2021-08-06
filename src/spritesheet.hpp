@@ -11,6 +11,8 @@ public:
 	SpriteSheet(std::vector<sf::Image> _frames) : frames(std::move(_frames)) {}
 
 	void crop(const sf::IntRect& _rect);
+	// set color of all pixels with alpha 0 to black
+	void applyZeroAlpha();
 
 	// get single image containing all frames
 	sf::Image getCombined() const;
@@ -22,3 +24,6 @@ public:
 
 // determine minimum rectangle that contains all nonzero pixels over all sheets
 sf::IntRect computeMinRect(std::vector<SpriteSheet*> _sheets, unsigned _minBorder = 0);
+
+// set color of all pixels with alpha 0 to black
+void setZeroAlpha(sf::Image& _img);

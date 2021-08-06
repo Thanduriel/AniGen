@@ -14,7 +14,7 @@ namespace math {
 		using ReturnType = decltype(std::function{ _reduce })::result_type;
 		using DistanceType = decltype(std::function{ _dist })::result_type;
 
-		sf::Vector2i kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);
+		const sf::Vector2i kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);
 		auto computeKernel = [&](unsigned x, unsigned y)
 		{
 			Matrix<DistanceType> result(_kernel.size);

@@ -50,6 +50,25 @@ for (auto& frame : frames)
 	}
 }
 
+void setZeroAlpha(sf::Image& _img)
+{
+	const sf::Vector2u size = _img.getSize();
+	for (unsigned y = 0; y < size.y; ++y)
+	{
+		for (unsigned x = 0; x < size.x; ++x)
+		{
+			if (_img.getPixel(x, y).a == 0)
+				_img.setPixel(x, y, sf::Color::Transparent);
+		}
+	}
+}
+
+void SpriteSheet::applyZeroAlpha()
+{
+	for (sf::Image& img : frames)
+		setZeroAlpha(img);
+}
+
 sf::Image SpriteSheet::getCombined() const
 {
 	const sf::Vector2u size = frames[0].getSize();

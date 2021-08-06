@@ -35,7 +35,7 @@ Matrix<float> KernelDistance::operator()(unsigned x, unsigned y) const
 		return std::accumulate(result.begin(), result.end(), 0.f);
 	};
 
-	return applyConvolution(m_dst, makeKernel(x, y), distance, sum);
+	return applyConvolution(m_src, makeKernel(x, y), distance, sum);
 }
 
 Matrix<sf::Color> KernelDistance::makeKernel(unsigned x, unsigned y) const
@@ -47,7 +47,7 @@ Matrix<sf::Color> KernelDistance::makeKernel(unsigned x, unsigned y) const
 		{
 			const int xInd = static_cast<int>(x + j) - m_kernelHalSize.x;
 			const int yInd = static_cast<int>(y + i) - m_kernelHalSize.y;
-			kernel(j, i) = getPixelPadded(m_src, xInd, yInd);
+			kernel(j, i) = getPixelPadded(m_dst, xInd, yInd);
 		}
 
 	return kernel;
@@ -87,9 +87,11 @@ Matrix<float> BlurDistance::operator()(unsigned x, unsigned y) const
 {
 	Matrix<float> distances(getSize());
 
-	for (size_t i = 0; i < m_dstBlurred.elements.size(); ++i)
+	const sf::Vector3f color = m_dstBlurred(x, y);
+
+	for (size_t i = 0; i < m_srcBlurred.elements.size(); ++i)
 	{
-		distances[i] = math::distSq(m_dstBlurred[i], m_srcBlurred(x, y));
+		distances[i] = math::distSq(m_srcBlurred[i], color);
 	}
 	return distances;
 }

@@ -54,6 +54,7 @@ int main(int argc, char* argv[])
 	args::ValueFlagList<std::string> inputs(arguments, "inputs", "the reference input sprites", { 'i', "inputs" });
 	args::ValueFlagList<std::string> targets(arguments, "targets", "either the target sprites for the maps to (create) or the transfer maps to (apply)", { 't', "targets" });
 	args::ValueFlag<std::string> outputName(arguments, "output", "name for the map to (create) or the object for (apply) without ending", { 'o', "output" });
+	args::Flag debugFlag(arguments, "debug", "for (apply) the reference image is combined with a high contrast image to visualize the map", { "debug" });
 	args::GlobalOptions globals(parser, arguments);
 	try
 	{
@@ -76,12 +77,11 @@ int main(int argc, char* argv[])
 		std::cerr << parser;
 		return 1;
 	}
+	const unsigned numThreads = args::get(threads);
 
 	auto start = std::chrono::high_resolution_clock::now();
 
-	const unsigned numThreads = args::get(threads);
-	const bool useBlur = true || argc > 4 && !strcmp(argv[4], "blur");
-
+	// load reference sprites
 	std::vector<sf::Image> referenceSprites;
 	const auto inputNames = args::get(inputs);
 	referenceSprites.reserve(inputNames.size());
@@ -90,6 +90,8 @@ int main(int argc, char* argv[])
 		SpriteSheet sheet(name, args::get(framesInput));
 		referenceSprites.emplace_back(sheet.frames[args::get(refFrame)]);
 	}
+	for (sf::Image& sprite : referenceSprites) setZeroAlpha(sprite);
+
 	const auto targetNames = args::get(targets);
 
 	if (createMode)
@@ -111,11 +113,15 @@ int main(int argc, char* argv[])
 				<< targetNames[i] << "\". All target sheets should be of the same animation";
 		}*/
 
+		// load targets
 		const int numFrames = args::get(framesTarget);
 		std::vector<SpriteSheet> targetSheets;
 		targetSheets.reserve(targetNames.size());
 		for (auto& name : targetNames)
+		{
 			targetSheets.emplace_back(name, numFrames);
+			targetSheets.back().applyZeroAlpha();
+		}
 
 		const std::string mapName = args::get(outputName);
 		std::ofstream file(mapName + ".txt");
@@ -146,6 +152,14 @@ int main(int argc, char* argv[])
 			// an empty map is read before encountering eof
 			if (sheetMaps.back().size.x == 0)
 				sheetMaps.pop_back();
+		}
+
+		if (debugFlag)
+		{
+			referenceSprites.front().saveToFile("reference1.png");
+			for (auto& sprite : referenceSprites)
+				sprite = makeColorGradientImage(sprite, true);
+			referenceSprites.front().saveToFile("reference2.png");
 		}
 
 		for (size_t i = 0; i < referenceSprites.size(); ++i)
