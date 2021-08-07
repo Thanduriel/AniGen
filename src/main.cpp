@@ -12,29 +12,37 @@
 
 using namespace math;
 
-// compute the L1 difference between a and b
-sf::Image imageDifference(const sf::Image& a, const sf::Image& b)
+enum struct SimilarityType
 {
-	sf::Image difImage;
-	const sf::Vector2u size = a.getSize();
-	difImage.create(size.x, size.y);
+	Equality,
+	Blur,
+	Count
+};
 
-	for (unsigned y = 0; y < size.y; ++y)
+const std::array<std::string, static_cast<size_t>(SimilarityType::Count)> SIMILARITY_TYPE_NAMES =
+{ {
+	{"equality"},
+	{"blur"}
+} };
+
+std::pair< SimilarityType, sf::Vector2u> parseSimilarityArg(const std::string& _arg)
+{
+	const auto typeSplit = _arg.find_first_of('_');
+	const auto sizeSplit = _arg.find_last_of('x');
+	const std::string typeStr = _arg.substr(0, typeSplit);
+	const auto typeIt = std::find(SIMILARITY_TYPE_NAMES.begin(), SIMILARITY_TYPE_NAMES.end(), typeStr);
+
+	if (typeSplit == std::string::npos || sizeSplit == std::string::npos || typeIt == SIMILARITY_TYPE_NAMES.end())
 	{
-		for (unsigned x = 0; x < size.x; ++x)
-		{
-			sf::Color dif;
-			const sf::Color col1 = a.getPixel(x, y);
-			const sf::Color col2 = b.getPixel(x, y);
-
-			dif.r = std::abs(static_cast<int>(col1.r) - static_cast<int>(col2.r));
-			dif.g = std::abs(static_cast<int>(col1.g) - static_cast<int>(col2.g));
-			dif.b = std::abs(static_cast<int>(col1.b) - static_cast<int>(col2.b));
-			dif.a = 255;
-			difImage.setPixel(x,y, dif);
-		}
+		std::cerr << "[Warning] Could not parse the provided similarity_measure argument, using defaults instead.";
+		return { SimilarityType::Equality, sf::Vector2u(1, 1) };
 	}
-	return difImage;
+
+	const int x = std::stoi(_arg.substr(typeSplit + 1, sizeSplit - typeSplit));
+	const int y = std::stoi(_arg.substr(sizeSplit + 1));
+	const SimilarityType type = static_cast<SimilarityType>(std::distance(SIMILARITY_TYPE_NAMES.begin(), typeIt));
+
+	return { type, sf::Vector2u(x,y) };
 }
 
 int main(int argc, char* argv[])
@@ -44,17 +52,35 @@ int main(int argc, char* argv[])
 	args::Group commands(parser, "commands");
 	args::Command applyMode(commands, "apply", "apply an existing map to a sprite");
 	args::Command createMode(commands, "create", "create a map from reference sprites");
+	args::Command diffMode(commands, "difference", "compute difference between two sprites");
 	
 	args::Group arguments("arguments");
 	args::HelpFlag help(arguments, "help", "display this help menu", { 'h', "help" });
-	args::ValueFlag<int> framesInput(arguments, "num_input_frames", "number of frames in the input sprites", { 'n', "input_frames" }, 1);
-	args::ValueFlag<int> framesTarget(arguments, "num_target_frames", "number of frames in the target sprites", { 'm', "target_frames" }, 1);
-	args::ValueFlag<int> refFrame(arguments, "reference_frame", "which frame to use as reference in the input sprites; only necessary if input_frames > 0", { 'r', "ref_frame" }, 0);
-	args::ValueFlag<unsigned> threads(arguments, "threads", "maximum number of threads to use", { 'j', "num_threads" }, std::thread::hardware_concurrency());
-	args::ValueFlagList<std::string> inputs(arguments, "inputs", "the reference input sprites", { 'i', "inputs" });
-	args::ValueFlagList<std::string> targets(arguments, "targets", "either the target sprites for the maps to (create) or the transfer maps to (apply)", { 't', "targets" });
-	args::ValueFlag<std::string> outputName(arguments, "output", "name for the map to (create) or the object for (apply) without ending", { 'o', "output" });
-	args::Flag debugFlag(arguments, "debug", "for (apply) the reference image is combined with a high contrast image to visualize the map", { "debug" });
+	args::ValueFlag<int> framesInput(arguments, "num_input_frames", 
+		"number of frames in the input sprites", { 'n', "input_frames" }, 1);
+	args::ValueFlag<int> framesTarget(arguments, "num_target_frames", 
+		"number of frames in the target sprites", { 'm', "target_frames" }, 1);
+	args::ValueFlag<int> refFrame(arguments, "reference_frame", 
+		"which frame to use as reference in the input sprites; only necessary if input_frames > 0", 
+		{ 'r', "ref_frame" }, 0);
+	args::ValueFlag<unsigned> threads(arguments, "threads", 
+		"maximum number of threads to use", { 'j', "num_threads" }, 
+		std::thread::hardware_concurrency());
+	args::ValueFlagList<std::string> inputs(arguments, "inputs", 
+		"the reference input sprites", { 'i', "inputs" });
+	args::ValueFlagList<std::string> targets(arguments, "targets",
+		"either the target sprites for the maps to (create) or the transfer maps to (apply)", 
+		{ 't', "targets" });
+	args::ValueFlag<std::string> outputName(arguments, "output", 
+		"name for the map to (create) or the name of the sprite to create without ending for (apply)", 
+		{ 'o', "output" });
+
+	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
+		"the similarity measure to use; either equality or blurred",
+		{ 's', "similarity" }, "equality_1x1");
+	args::Flag debugFlag(arguments, "debug", 
+		"for (apply) the reference image is combined with a high contrast image to better visualize the map", 
+		{ "debug" });
 	args::GlobalOptions globals(parser, arguments);
 	try
 	{
@@ -102,6 +128,7 @@ int main(int argc, char* argv[])
 				<< ") and the number of targets (" << targetNames.size() << ") need to be equal.";
 			return 1;
 		}
+		std::cout << "Building a transfer map from " << targetNames.size() << " samples.\n";
 
 	//	auto [_, animationName] = utils::splitName(targetNames[0]);
 	/*	for (size_t i = 01; i < targetNames.size(); ++i)
@@ -123,25 +150,44 @@ int main(int argc, char* argv[])
 			targetSheets.back().applyZeroAlpha();
 		}
 
+		// construct transfer maps and store them
 		const std::string mapName = args::get(outputName);
-		std::ofstream file(mapName + ".txt");
-		for (int i = 0; i < numFrames; ++i)
+		std::ofstream file(mapName); //  + ".txt"
+		auto makeMaps = [&]<typename Similarity>(const sf::Vector2u& _kernel)
 		{
-			std::vector<KernelDistance> distances;
-			for(size_t j = 0; j < targetSheets.size(); ++j)
-				distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], sf::Vector2u(1, 1));
-			const TransferMap map = constructMap(GroupDistance(std::move(distances)), numThreads);
-			//constructMap(KernelDistance(reference.frames[0], reference.frames[i]), numThreads);
+			for (int i = 0; i < numFrames; ++i)
+			{
+				std::vector<Similarity> distances;
+				for (size_t j = 0; j < targetSheets.size(); ++j)
+					distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
+				const TransferMap map = constructMap(GroupDistance(std::move(distances)), numThreads);
 
-			file << map;
-		}
+				file << map;
+			}
+		};
+		auto [type, kernel] = parseSimilarityArg(args::get(similarityMeasure));
+		switch (type)
+		{
+		case SimilarityType::Equality: makeMaps.operator()<KernelDistance>(kernel);
+			break;
+		case SimilarityType::Blur: makeMaps.operator()<BlurDistance>(kernel);
+			break;
+		};
+
 	}
 	else if (applyMode)
 	{
+		// load transfer maps
 		std::vector<std::vector<TransferMap>> transferMaps;
 		transferMaps.reserve(targetNames.size());
 		for (auto& name : targetNames)
 		{
+			if (!std::filesystem::exists(name))
+			{
+				std::cerr << "[Warning] Skipping the map "
+					<< name << " as the file could not be found.\n";
+				continue;
+			}
 			auto& sheetMaps = transferMaps.emplace_back();
 			std::ifstream file(name);
 			while (file)
@@ -161,6 +207,9 @@ int main(int argc, char* argv[])
 				sprite = makeColorGradientImage(sprite, true);
 			referenceSprites.front().saveToFile("reference2.png");
 		}
+
+		std::cout << "Applying " << transferMaps.size() << " transfer map"
+			<< (targetNames.size() != 1 ? "s." : ".") << "\n";
 
 		for (size_t i = 0; i < referenceSprites.size(); ++i)
 		{
@@ -183,39 +232,8 @@ int main(int argc, char* argv[])
 		}
 	}
 
-/*	SpriteSheet reference(refName, numFrames);
-	SpriteSheet validation(targetName, numFrames);
-	const auto minRect = computeMinRect({ &reference,&validation }, 3u);
-	reference.crop(minRect);
-	validation.crop(minRect);
-
-	SpriteSheet output;
-	SpriteSheet dif;
-	output.frames.emplace_back(validation.frames[0]);
-	dif.frames.emplace_back(imageDifference(validation.frames[0], output.frames[0]));
-	for (int i = 1; i < 8; ++i)
-	{
-		const TransferMap map = useBlur ? constructMapAvg(reference.frames[0], reference.frames[i], numThreads)
-			: constructMap(reference.frames[0], reference.frames[i], numThreads);
-		colorMap(map, reference.frames[0]).saveToFile("distance" + std::to_string(i) + ".png");
-	//	distanceMap(map).saveToFile("distance" + std::to_string(i) + ".png");
-		output.frames.emplace_back(applyMap(map, validation.frames[i]));
-		dif.frames.emplace_back(imageDifference(validation.frames[i], output.frames.back()));
-	}
-/*	TransferMap transferMap(frameSize);
-	for (unsigned y = 0; y < frameSize.y; ++y)
-	{
-		const unsigned idy = y * frameSize.x;
-		for (unsigned x = 0; x < frameSize.x; ++x)
-		{
-			transferMap.elements[x + idy] = sf::Vector2u(x, frameSize.y - y - 1);
-		}
-	}
-	dif.save("dif.png");
-	output.save("output.png");*/
-
 	auto end = std::chrono::high_resolution_clock::now();
-	std::cout << "Computation took " << std::chrono::duration<double>(end - start).count() << "s" << std::endl;
+	std::cout << "Computation took " << std::chrono::duration<double>(end - start).count() << "s." << std::endl;
 
 	return 0;
 }

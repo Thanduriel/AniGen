@@ -5,6 +5,20 @@
 
 #include <functional>
 
+// Access pixel x,y from _image. 
+// If the coordinates lie outside the padded value is returned instead.
+inline sf::Color getPixelPadded(const sf::Image& _image, int x, int y)
+{
+	if (x < 0 || y < 0
+		|| x >= static_cast<int>(_image.getSize().x)
+		|| y >= static_cast<int>(_image.getSize().y))
+	{
+		return sf::Color(0u);
+	}
+
+	return _image.getPixel(x, y);
+}
+
 namespace math {
 	// perform a 2D convolution on an image
 	template<typename T, typename Distance, typename Reduce>
@@ -43,18 +57,4 @@ namespace math {
 
 		return result;
 	}
-}
-
-// Access pixel x,y from _image. 
-// If the coordinates lie outside the padded value is returned instead.
-sf::Color getPixelPadded(const sf::Image& _image, int x, int y)
-{
-	if (x < 0 || y < 0
-		|| x >= static_cast<int>(_image.getSize().x)
-		|| y >= static_cast<int>(_image.getSize().y))
-	{
-		return sf::Color(0u);
-	}
-
-	return _image.getPixel(x, y);
 }

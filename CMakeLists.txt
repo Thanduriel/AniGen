@@ -28,20 +28,20 @@ GroupSources(src)
 
 add_library(AniGenLib ${SOURCE_FILES})
 set_target_properties(AniGenLib PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED YES
 )
 
 add_executable(AniGen "src/main.cpp")
 set_target_properties(AniGen PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED YES
 )
 target_link_libraries(AniGen PRIVATE AniGenLib)
 
 add_executable(Tests "tests/tests.cpp")
 set_target_properties(Tests PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED YES
 )
 target_link_libraries(Tests PRIVATE AniGenLib)
