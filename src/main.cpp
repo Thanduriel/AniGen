@@ -9,6 +9,7 @@
 #include "spritesheet.hpp"
 #include "map.hpp"
 #include "pixelsimilarity.hpp"
+#include "colors.hpp"
 
 using namespace math;
 
@@ -45,6 +46,24 @@ std::pair< SimilarityType, sf::Vector2u> parseSimilarityArg(const std::string& _
 	return { type, sf::Vector2u(x,y) };
 }
 
+sf::Image imageDifference(const sf::Image& a, const sf::Image& b)
+{
+	sf::Image difImage;
+	const sf::Vector2u size = a.getSize();
+	difImage.create(size.x, size.y);
+
+	for (unsigned y = 0; y < size.y; ++y)
+	{
+		for (unsigned x = 0; x < size.x; ++x)
+		{
+			const sf::Color col1 = a.getPixel(x, y);
+			const sf::Color col2 = b.getPixel(x, y);
+			difImage.setPixel(x, y, absDist(col1, col2));
+		}
+	}
+	return difImage;
+}
+
 int main(int argc, char* argv[])
 {
 	args::ArgumentParser parser("Sprite animation generator.");
@@ -72,7 +91,7 @@ int main(int argc, char* argv[])
 		"either the target sprites for the maps to (create) or the transfer maps to (apply)", 
 		{ 't', "targets" });
 	args::ValueFlag<std::string> outputName(arguments, "output", 
-		"name for the map to (create) or the name of the sprite to create without ending for (apply)", 
+		"name for the map to (create); or the stem of the name for the sprite to create (apply), the name of the map and the ending is appended to this", 
 		{ 'o', "output" });
 
 	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
@@ -106,6 +125,19 @@ int main(int argc, char* argv[])
 	const unsigned numThreads = args::get(threads);
 
 	auto start = std::chrono::high_resolution_clock::now();
+
+	if (diffMode)
+	{
+		const auto inputNames = args::get(inputs);
+		sf::Image imgA;
+		imgA.loadFromFile(inputNames.front());
+		sf::Image imgB;
+		imgB.loadFromFile(args::get(targets).front());
+		const sf::Image result = imageDifference(imgA, imgB);
+		const std::string name = outputName ? args::get(outputName) : "absDiff";
+		result.saveToFile(name + ".png");
+		return 0;
+	}
 
 	// load reference sprites
 	std::vector<sf::Image> referenceSprites;

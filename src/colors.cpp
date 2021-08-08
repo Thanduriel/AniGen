@@ -63,3 +63,15 @@ sf::Uint8 average(const sf::Color& _color)
 		+ static_cast<int>(_color.g) 
 		+ static_cast<int>(_color.b)) / 3);
 }
+
+sf::Color absDist(const sf::Color& _a, const sf::Color& _b)
+{
+	sf::Color dif;
+
+	dif.r = std::abs(static_cast<int>(_a.r) - static_cast<int>(_b.r));
+	dif.g = std::abs(static_cast<int>(_a.g) - static_cast<int>(_b.g));
+	dif.b = std::abs(static_cast<int>(_a.b) - static_cast<int>(_b.b));
+	dif.a = 255;
+
+	return dif;
+}

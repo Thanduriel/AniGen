@@ -80,8 +80,8 @@ public:
 	math::Matrix<float> operator()(unsigned x, unsigned y) const
 	{
 		math::Matrix<float> distance = m_distances[0](x, y);
-	//	for (size_t i = 1; i < m_distances.size(); ++i)
-	//		distance += m_distances[i](x, y);
+		for (size_t i = 1; i < m_distances.size(); ++i)
+			distance += m_distances[i](x, y);
 
 		return distance;
 	}
