@@ -8,6 +8,26 @@
 
 using namespace math;
 
+ZoneMap::ZoneMap(const sf::Image& _src, const sf::Image& _dst)
+	: m_dst(_dst)
+{
+	const sf::Vector2u size = _src.getSize();
+	for (unsigned y = 0; y < size.y; ++y)
+	{
+		for (unsigned x = 0; x < size.x; ++x)
+		{
+			m_srcZones[_src.getPixel(x, y).toInteger()].push_back(x + y * size.x);
+		}
+	}
+}
+
+const ZoneMap::PixelList& ZoneMap::operator()(unsigned x, unsigned y) const
+{
+	auto it = m_srcZones.find(m_dst.getPixel(x, y).toInteger());
+	return it != m_srcZones.end() ? it->second : m_defaultZone;
+}
+
+// ************************************************************* //
 sf::Image applyMap(const TransferMap& _map, const sf::Image& _src)
 {
 	sf::Image image;

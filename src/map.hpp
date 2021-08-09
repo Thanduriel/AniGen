@@ -4,6 +4,21 @@
 #include "math/matrix.hpp"
 #include "utils.hpp"
 
+#include <unordered_map>
+
+class ZoneMap
+{
+public:
+	ZoneMap(const sf::Image& _src, const sf::Image& _dst);
+
+	using PixelList = std::vector<size_t>;
+	const PixelList& operator()(unsigned x, unsigned y) const;
+private:
+	std::unordered_map<sf::Uint32, PixelList> m_srcZones;
+	const sf::Image& m_dst;
+	PixelList m_defaultZone; //< empty zone returned if a color does not exist in the reference
+};
+
 // each element contains the coordinates for the source
 using TransferMap = math::Matrix<sf::Vector2u>;
 
@@ -18,6 +33,7 @@ sf::Image applyMap(const TransferMap& _map, const sf::Image& _src);
  */
 template<typename DistanceMeasure>
 TransferMap constructMap(const DistanceMeasure& _distanceMeasure,
+	const ZoneMap* _zoneMap = nullptr,
 	unsigned _numThreads = 1)
 {
 	const sf::Vector2u size = _distanceMeasure.getSize();
@@ -30,12 +46,39 @@ TransferMap constructMap(const DistanceMeasure& _distanceMeasure,
 			for (unsigned x = 0; x < size.x; ++x)
 			{
 				const auto distance = _distanceMeasure(x, y);
-				auto minEl = std::min_element(distance.begin(), distance.end());
-				auto minInd = std::distance(distance.begin(), minEl);
-
 				// if the minimum is not unique prefer the identity
-				map(x, y) = (distance(x, y) == *minEl) ? 
-					sf::Vector2u(x,y) : distance.index(minInd);
+				size_t minInd = distance.flatIndex(x, y);
+
+				if (_zoneMap)
+				{
+					const ZoneMap::PixelList& zone = (*_zoneMap)(x,y);
+					if (zone.empty())
+					{
+						std::cout << "[Warning] Zone map is invalid. The color at ("
+							<< x << ", " << y << ") does not exist in the reference.";
+					}
+					else
+					{
+						// identity is not part of the zone
+						if (std::find(zone.begin(), zone.end(), minInd) == zone.end())
+							minInd = zone.front();
+						auto minEl = distance[minInd];
+						for (size_t ind : zone)
+							if (distance[ind] < minEl)
+							{
+								minEl = distance[ind];
+								minInd = ind;
+							}
+					}
+				}
+				else
+				{
+					auto minEl = std::min_element(distance.begin(), distance.end());
+					if (*minEl < distance(x, y))
+						minInd = std::distance(distance.begin(), minEl);
+				}
+
+				map(x, y) = distance.index(minInd);
 			}
 		}
 	};

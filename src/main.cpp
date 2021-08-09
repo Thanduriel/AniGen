@@ -94,6 +94,9 @@ int main(int argc, char* argv[])
 		"name for the map to (create); or the stem of the name for the sprite to create (apply), the name of the map and the ending is appended to this", 
 		{ 'o', "output" });
 
+	args::Flag zoneMapFlag(arguments, "zone_map",
+		"for (create) use the first (input,target) pair as zone map instead as regular input", { 'z', "zones" });
+
 	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
 		"the similarity measure to use; either equality or blurred",
 		{ 's', "similarity" }, "equality_1x1");
@@ -190,9 +193,16 @@ int main(int argc, char* argv[])
 			for (int i = 0; i < numFrames; ++i)
 			{
 				std::vector<Similarity> distances;
-				for (size_t j = 0; j < targetSheets.size(); ++j)
+				// make zone map
+				std::unique_ptr<ZoneMap> zoneMap;
+				if (zoneMapFlag)
+					zoneMap = std::make_unique<ZoneMap>(referenceSprites[0], targetSheets[0].frames[i]);
+
+				for (size_t j = zoneMap ? 1 : 0; j < targetSheets.size(); ++j)
 					distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
-				const TransferMap map = constructMap(GroupDistance(std::move(distances)), numThreads);
+				const TransferMap map = constructMap(GroupDistance(std::move(distances)), 
+					zoneMap.get(),
+					numThreads);
 
 				file << map;
 			}
