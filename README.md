@@ -1,6 +1,10 @@
 # AniGen
 A tool which automates generation of sprite based animations.
 
+Starting with a set of completed animations, it works by constructing a mapping from one animation frame to the others.
+To do this, it searches for each pixel in the target frames the pixel in the source frame which is most similar.
+Then, this *transfer map* consisting of the coordinates of the source color for each pixel can be used to generate animations from the same animation source frame of a different object.
+
 ## Build
 Install the dependencies
 * [args](https://github.com/Taywee/args)
@@ -34,6 +38,13 @@ $ AniGen apply -i "Sprites/FullyAnimated/Template_Muscular_White/Male_Skin_White
 ### Similarity
 The similarity argument currently takes a string with the syntax
 ```
-type_axb
+-s type_axb
 ```
 where *type* is either `equality` or `blur` and (*a*,*b*) is the size of a centered kernel.
+
+### Zone Map
+A zone map is pair of frames which restricts the search space for each pixel to the source region which shares the same color.
+This improves map generation performance and provides an avenue to manually tweak details of the map.
+Regular sprites can serve as a zone map as long as all the colors in the target frame exist in the source frame. 
+
+<img src="/Sprites/Demo/Mask_Combat_Hit.png"  width="320" height="320"><img src="/Sprites/Demo/Mask_Block_1H_Rtrn.png"  width="320" height="320">
