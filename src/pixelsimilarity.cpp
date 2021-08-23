@@ -26,10 +26,11 @@ Matrix<float> IdentityDistance::operator()(unsigned x, unsigned y) const
 {
 	const sf::Vector2u size = getSize();
 	Matrix<float> distances(size);
+	const sf::Color dstColor = m_dst.getPixel(x, y);
 
-	for (unsigned y = 0; y < size.y; ++y)
-		for (unsigned x = 0; x < size.x; ++x)
-			distances(x, y) = m_dst.getPixel(x, y) == m_src.getPixel(x, y) ? 0.f : 1.f;
+	for (unsigned iy = 0; iy < size.y; ++iy)
+		for (unsigned ix = 0; ix < size.x; ++ix)
+			distances(ix, iy) = dstColor == m_src.getPixel(ix, iy) ? 0.f : 1.f;
 
 	return distances;
 }

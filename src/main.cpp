@@ -194,18 +194,27 @@ int main(int argc, char* argv[])
 		// construct transfer maps and store them
 		const std::string mapName = args::get(outputName);
 		std::ofstream file(mapName);
-		auto makeMaps = [&]<typename Similarity>(const sf::Vector2u& _kernel)
+		auto makeMaps = [&]<typename Similarity, bool WithId>(const sf::Vector2u& _kernel)
 		{
 			for (int i = 0; i < numFrames; ++i)
 			{
-				std::vector<Similarity> distances;
+				using SimilarityT = std::conditional_t<WithId,
+					MaskCompositionDistance<IdentityDistance, Similarity>,
+					Similarity>;
+				std::vector<SimilarityT> distances;
 				// make zone map
 				std::unique_ptr<ZoneMap> zoneMap;
 				if (zoneMapFlag)
 					zoneMap = std::make_unique<ZoneMap>(referenceSprites[0], targetSheets[0].frames[i]);
 
 				for (size_t j = zoneMap ? 1 : 0; j < targetSheets.size(); ++j)
-					distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
+				{
+					if constexpr (WithId)
+						distances.emplace_back(IdentityDistance(referenceSprites[j], targetSheets[j].frames[i], _kernel),
+							Similarity(referenceSprites[j], targetSheets[j].frames[i], _kernel));
+					else
+						distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
+				}
 				const TransferMap map = constructMap(GroupDistance(std::move(distances)), 
 					zoneMap.get(),
 					numThreads);
@@ -216,11 +225,11 @@ int main(int argc, char* argv[])
 		auto [type, kernel] = parseSimilarityArg(args::get(similarityMeasure));
 		switch (type)
 		{
-		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance>(kernel);
+		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance, false>(kernel);
 			break;
-		case SimilarityType::Equality: makeMaps.operator()<KernelDistance>(kernel);
+		case SimilarityType::Equality: makeMaps.operator()<KernelDistance, false>(kernel);
 			break;
-		case SimilarityType::Blur: makeMaps.operator()<BlurDistance>(kernel);
+		case SimilarityType::Blur: makeMaps.operator()<BlurDistance, false>(kernel);
 			break;
 		};
 
