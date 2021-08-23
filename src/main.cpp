@@ -15,6 +15,7 @@ using namespace math;
 
 enum struct SimilarityType
 {
+	Identity,
 	Equality,
 	Blur,
 	Count
@@ -22,8 +23,9 @@ enum struct SimilarityType
 
 const std::array<std::string, static_cast<size_t>(SimilarityType::Count)> SIMILARITY_TYPE_NAMES =
 { {
+	{"identity"},
 	{"equality"},
-	{"blur"}
+	{"blur"},
 } };
 
 std::pair< SimilarityType, sf::Vector2u> parseSimilarityArg(const std::string& _arg)
@@ -35,13 +37,16 @@ std::pair< SimilarityType, sf::Vector2u> parseSimilarityArg(const std::string& _
 
 	if (typeSplit == std::string::npos || sizeSplit == std::string::npos || typeIt == SIMILARITY_TYPE_NAMES.end())
 	{
-		std::cerr << "[Warning] Could not parse the provided similarity_measure argument, using defaults instead.";
-		return { SimilarityType::Equality, sf::Vector2u(1, 1) };
+		std::cerr << "[Warning] Could not parse the provided similarity_measure argument. Using defaults instead.\n";
+		return { SimilarityType::Identity, sf::Vector2u(1, 1) };
 	}
 
 	const int x = std::stoi(_arg.substr(typeSplit + 1, sizeSplit - typeSplit));
 	const int y = std::stoi(_arg.substr(sizeSplit + 1));
-	const SimilarityType type = static_cast<SimilarityType>(std::distance(SIMILARITY_TYPE_NAMES.begin(), typeIt));
+	SimilarityType type = static_cast<SimilarityType>(std::distance(SIMILARITY_TYPE_NAMES.begin(), typeIt));
+	// there is no difference if kernel size 1 is used
+	if (x == 1 && y == 1 && type == SimilarityType::Equality) 
+		type = SimilarityType::Identity;
 
 	return { type, sf::Vector2u(x,y) };
 }
@@ -95,7 +100,8 @@ int main(int argc, char* argv[])
 		{ 'o', "output" });
 
 	args::Flag zoneMapFlag(arguments, "zone_map",
-		"for (create) use the first (input,target) pair as zone map instead as regular input", { 'z', "zones" });
+		"for (create) use the first (input,target) pair as zone map instead as regular input", 
+		{ 'z', "zones" });
 
 	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
 		"the similarity measure to use; either equality or blurred",
@@ -187,7 +193,7 @@ int main(int argc, char* argv[])
 
 		// construct transfer maps and store them
 		const std::string mapName = args::get(outputName);
-		std::ofstream file(mapName); //  + ".txt"
+		std::ofstream file(mapName);
 		auto makeMaps = [&]<typename Similarity>(const sf::Vector2u& _kernel)
 		{
 			for (int i = 0; i < numFrames; ++i)
@@ -210,6 +216,8 @@ int main(int argc, char* argv[])
 		auto [type, kernel] = parseSimilarityArg(args::get(similarityMeasure));
 		switch (type)
 		{
+		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance>(kernel);
+			break;
 		case SimilarityType::Equality: makeMaps.operator()<KernelDistance>(kernel);
 			break;
 		case SimilarityType::Blur: makeMaps.operator()<BlurDistance>(kernel);

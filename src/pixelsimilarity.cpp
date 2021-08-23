@@ -15,6 +15,26 @@ DistanceBase::DistanceBase(const sf::Image& _src, const sf::Image& _dst)
 }
 
 // ************************************************************* //
+IdentityDistance::IdentityDistance(const sf::Image& _src,
+	const sf::Image& _dst,
+	const sf::Vector2u&)
+	: DistanceBase(_src, _dst)
+{
+}
+
+Matrix<float> IdentityDistance::operator()(unsigned x, unsigned y) const
+{
+	const sf::Vector2u size = getSize();
+	Matrix<float> distances(size);
+
+	for (unsigned y = 0; y < size.y; ++y)
+		for (unsigned x = 0; x < size.x; ++x)
+			distances(x, y) = m_dst.getPixel(x, y) == m_src.getPixel(x, y) ? 0.f : 1.f;
+
+	return distances;
+}
+
+// ************************************************************* //
 KernelDistance::KernelDistance(const sf::Image& _src,
 	const sf::Image& _dst,
 	const sf::Vector2u& _kernelSize)
@@ -61,7 +81,7 @@ BlurDistance::BlurDistance(const sf::Image& _src,
 {
 	const sf::Vector2u size = _src.getSize();
 
-	const sf::Vector2i kernelHalf(_kernelSize.x / 2, _kernelSize.y / 2);
+	const sf::Vector2u kernelHalf(_kernelSize.x / 2, _kernelSize.y / 2);
 	Matrix<float> kernel(_kernelSize, 1.f);
 	// the center pixel always takes precedence
 	kernel(kernelHalf.x, kernelHalf.y) = 100.f;

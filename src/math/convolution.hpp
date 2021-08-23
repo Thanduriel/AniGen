@@ -28,31 +28,41 @@ namespace math {
 		using ReturnType = decltype(std::function{ _reduce })::result_type;
 		using DistanceType = decltype(std::function{ _dist })::result_type;
 
-		const sf::Vector2i kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);
+		const sf::Vector2u size = _image.getSize();
+		const sf::Vector2u kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);
+
+		// explicit padding
+		sf::Image paddedImg;
+		paddedImg.create(size.x + _kernel.size.x-1, size.y + _kernel.size.y - 1);
+		paddedImg.copy(_image, kernelHalf.x, kernelHalf.y);
+		const sf::Uint8* pixels = paddedImg.getPixelsPtr();
+
+		// result matrix can be reused
+		Matrix<DistanceType> kernelResult(_kernel.size);
 		auto computeKernel = [&](unsigned x, unsigned y)
 		{
-			Matrix<DistanceType> result(_kernel.size);
 			for (unsigned i = 0; i < _kernel.size.y; ++i)
 			{
-				const int yInd = static_cast<int>(y + i) - kernelHalf.y;
+				const unsigned yInd = (y + i - kernelHalf.y);
 				for (unsigned j = 0; j < _kernel.size.x; ++j)
 				{
-					// use padding if index is negative
-					const int xInd = static_cast<int>(x + j) - kernelHalf.x;
-					result(j, i) = _dist(_kernel.elements[j + i * _kernel.size.x],
-						getPixelPadded(_image, xInd, yInd));
+					const unsigned xInd = x + j - kernelHalf.x;
+					const unsigned kernelInd = j + i * _kernel.size.x;
+					kernelResult[kernelInd] = _dist(_kernel[kernelInd],
+						paddedImg.getPixel(xInd, yInd));
+					// sf::Color(*reinterpret_cast<const sf::Uint32*>(pixels + (xInd + yInd) * 4)));
+					//	getPixelPadded(_image, xInd, yInd));
 				}
 			}
-			return _reduce(result);
+			return _reduce(kernelResult);
 		};
 
 		Matrix<ReturnType> result(_image.getSize());
 
-		const sf::Vector2u size = _image.getSize();
 		for (unsigned y = 0; y < size.y; ++y)
 			for (unsigned x = 0; x < size.x; ++x)
 			{
-				result(x, y) = computeKernel(x, y);
+				result(x, y) = computeKernel(x+kernelHalf.x, y+kernelHalf.y);
 			}
 
 		return result;
