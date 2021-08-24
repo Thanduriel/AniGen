@@ -145,10 +145,10 @@ std::ostream& operator<<(std::ostream& _out, const TransferMap& _transferMap)
 	_out << _transferMap.size.x << " " << _transferMap.size.y << "\n";
 	for (unsigned y = 0; y < _transferMap.size.y; ++y)
 	{
-		for (unsigned x = 0; x < _transferMap.size.y; ++x)
+		for (unsigned x = 0; x < _transferMap.size.x; ++x)
 		{
 			const auto vec = _transferMap(x, y);
-			_out << vec.x << " " << vec.y << "; ";
+			_out << vec.x << " " << vec.y << ", ";
 		}
 		_out << "\n";
 	}

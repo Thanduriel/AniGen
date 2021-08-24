@@ -28,27 +28,29 @@ const std::array<std::string, static_cast<size_t>(SimilarityType::Count)> SIMILA
 	{"blur"},
 } };
 
-std::pair< SimilarityType, sf::Vector2u> parseSimilarityArg(const std::string& _arg)
+std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& _arg)
 {
-	const auto typeSplit = _arg.find_first_of('_');
+	std::stringstream ss(_arg);
+
 	const auto sizeSplit = _arg.find_last_of('x');
-	const std::string typeStr = _arg.substr(0, typeSplit);
+	std::string typeStr;
+	ss >> typeStr;
 	const auto typeIt = std::find(SIMILARITY_TYPE_NAMES.begin(), SIMILARITY_TYPE_NAMES.end(), typeStr);
 
-	if (typeSplit == std::string::npos || sizeSplit == std::string::npos || typeIt == SIMILARITY_TYPE_NAMES.end())
+	if (!ss || sizeSplit == std::string::npos || typeIt == SIMILARITY_TYPE_NAMES.end())
 	{
-		std::cerr << "[Warning] Could not parse the provided similarity_measure argument. Using defaults instead.\n";
+		std::cerr << "[Warning] Could not parse the provided similarity_measure argument. Using defaults \"equlity_1x1\" instead.\n";
 		return { SimilarityType::Identity, sf::Vector2u(1, 1) };
 	}
 
-	const int x = std::stoi(_arg.substr(typeSplit + 1, sizeSplit - typeSplit));
-	const int y = std::stoi(_arg.substr(sizeSplit + 1));
+	Matrix<float> kernel;
+	kernel.load(ss, 1.f);
 	SimilarityType type = static_cast<SimilarityType>(std::distance(SIMILARITY_TYPE_NAMES.begin(), typeIt));
 	// there is no difference if kernel size 1 is used
-	if (x == 1 && y == 1 && type == SimilarityType::Equality) 
+	if (kernel.size == sf::Vector2u(1,1) && type == SimilarityType::Equality) 
 		type = SimilarityType::Identity;
 
-	return { type, sf::Vector2u(x,y) };
+	return { type, kernel };
 }
 
 sf::Image imageDifference(const sf::Image& a, const sf::Image& b)
@@ -194,7 +196,7 @@ int main(int argc, char* argv[])
 		// construct transfer maps and store them
 		const std::string mapName = args::get(outputName);
 		std::ofstream file(mapName);
-		auto makeMaps = [&]<typename Similarity, bool WithId>(const sf::Vector2u& _kernel)
+		auto makeMaps = [&]<typename Similarity, bool WithId>(const Matrix<float>& _kernel)
 		{
 			for (int i = 0; i < numFrames; ++i)
 			{

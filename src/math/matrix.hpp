@@ -17,7 +17,7 @@ namespace math {
 
 		explicit Matrix(std::istream& _stream)
 		{
-			load(_stream);
+			loadBinary(_stream);
 		}
 
 		void resize(const sf::Vector2u& _size, const T& _default = {})
@@ -57,24 +57,70 @@ namespace math {
 		auto begin() { return elements.begin(); }
 		auto end() { return elements.end(); }
 
-		// binary serialization
+		// serialization
 		template<typename Stream>
-		void save(Stream& _stream) const
+		void saveBinary(Stream& _stream) const
 		{
 			_stream.write(reinterpret_cast<const char*>(&size), sizeof(sf::Vector2u));
 			_stream.write(reinterpret_cast<const char*>(elements.data()),
 				elements.size() * sizeof(T));
 		}
 
+		template<typename Stream>
+		requires requires (T x) { std::declval<std::ofstream>() << x; }
+		void save(Stream& _stream) const
+		{
+			_stream << size.x << " x " << size.y << "\n";
+
+			for (unsigned y = 0; y < size.y; ++y)
+			{
+				for (unsigned x = 0; x < size.x; ++x)
+				{
+					_stream << (*this)(x, y) << " ";
+				}
+				_stream << ";\n";
+			}
+		}
+
 		// stream needs to be open in binary mode!
 		template<typename Stream>
-		void load(Stream& _stream)
+		void loadBinary(Stream& _stream)
 		{
 			
 			sf::Vector2u s;
 			_stream.read(reinterpret_cast<char*>(&s), sizeof(sf::Vector2u));
 			resize(s);
 			_stream.read(reinterpret_cast<char*>(elements.data()), elements.size() * sizeof(T));
+		}
+
+		std::istream& load(std::istream& _in, T _default = {})
+			requires requires (T x) { std::declval<std::ifstream>() >> x; }
+		{
+			sf::Vector2u vec;
+			std::string delim;
+			if (_in >> vec.x >> delim >> vec.y && delim == "x")
+			{
+				resize(vec, _default);
+
+				for (unsigned y = 0; y < size.y; ++y)
+				{
+					for (unsigned x = 0; x < size.x; ++x)
+					{
+						T val;
+
+						if (_in >> val)
+							(*this)(x, y) = val;
+						else
+							return _in;
+					}
+					if (!(_in >> delim && delim == ";"))
+						return _in;
+				}
+			}
+			else
+				std::cerr << "[Error] Could not read the size of the matrix.\n";
+
+			return _in;
 		}
 
 		sf::Vector2u size;
@@ -116,4 +162,44 @@ namespace math {
 		return result;
 	}
 
+	template<typename T>
+	requires requires (T x) { std::declval<std::ofstream>()  << x; }
+	std::ostream& operator<<(std::ostream& _out, const Matrix<T>& _matrix)
+	{
+		_matrix.save(_out);
+		return _out;
+	}
+
+	template<typename T>
+	requires requires (T x) { std::declval<std::ifstream>() >> x; }
+	std::istream& operator>>(std::istream& _in, Matrix<T>& _matrix)
+	{
+		_matrix.load(_in);
+		return _in;
+	/*	sf::Vector2u vec;
+		std::string delim;
+		if (_in >> vec.x >> delim >> vec.y && delim == "x")
+		{
+			_matrix.resize(vec);
+
+			for (unsigned y = 0; y < _matrix.size.y; ++y)
+			{
+				for (unsigned x = 0; x < _matrix.size.x; ++x)
+				{
+					T val;
+
+					if (_in >> val)
+						_matrix(x, y) = val;
+					else
+						return _in;
+				}
+				if (!(_in >> delim && delim == ";"))
+					return _in;
+			}
+		}
+		else
+			std::cerr << "[Error] Could not read the size of the matrix.\n";
+
+		return _in;*/
+	}
 }

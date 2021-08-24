@@ -29,6 +29,7 @@ int main()
 	std::default_random_engine rng(0xAF31EB77);
 	std::uniform_int_distribution<unsigned> dist(0u, 255u);
 
+	// transfer map
 	TransferMap map(sf::Vector2u(64u, 64u));
 	for (auto& el : map.elements)
 		el = sf::Vector2u(dist(rng), dist(rng));
@@ -44,15 +45,41 @@ int main()
 		EXPECT(map.size.x == storedMap.size.x && map.size.y == storedMap.size.y, "loaded map has correct dimensions");
 		EXPECT(std::memcmp(map.elements.data(), storedMap.elements.data(), map.elements.size() * sizeof(decltype(map.elements.front()))) == 0, "loaded map is correct");
 	}
+	// binary matrix
 	{
 		std::ofstream outFile("test.dat", std::ios::binary);
-		map.save(outFile);
+		map.saveBinary(outFile);
 	}
 	{
 		std::ifstream inFile("test.dat", std::ios::binary);
 		const TransferMap storedMap(inFile);
 		EXPECT(map.size.x == storedMap.size.x && map.size.y == storedMap.size.y, "binary loaded map has correct dimensions");
 		EXPECT(std::memcmp(map.elements.data(), storedMap.elements.data(), map.elements.size() * sizeof(decltype(map.elements.front()))) == 0, "binary loaded map is correct");
+	}
+
+	// text file matrix
+	math::Matrix<float> mat1(sf::Vector2u(3,5));
+	std::uniform_real_distribution<float> fDist;
+	for (float& el : mat1)
+		el = fDist(rng);
+
+	{
+		std::ofstream outFile("test.txt");
+		outFile << mat1;
+	}
+	{
+		std::ifstream inFile("test.txt");
+		math::Matrix<float> mat2;
+		inFile >> mat2;
+		EXPECT(mat1.size == mat2.size, "matrix as text file has correct dimensions");
+		bool epsEqual = true;
+		for(size_t i = 0; i < mat1.elements.size(); ++i)
+			if (std::abs(mat1[i] - mat2[i]) > 0.0001)
+			{
+				epsEqual = false;
+				break;
+			}
+		EXPECT(epsEqual, "matrix is correctly loaded from text file");
 	}
 
 	// convolution

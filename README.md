@@ -39,6 +39,7 @@ $ AniGen apply -i "Sprites/FullyAnimated/Template_Muscular_White/Male_Skin_White
 The similarity argument currently takes a string with the syntax
 ```
 -s type_axb
+-s type a x b m11 m21 ...; m21 m22 ...; ... // new format on head
 ```
 where *type* is either `equality` or `blur` and (*a*,*b*) is the size of a centered kernel.
 

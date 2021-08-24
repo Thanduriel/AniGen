@@ -22,7 +22,7 @@ public:
 	// the last argument is just a dummy
 	IdentityDistance(const sf::Image& _src,
 		const sf::Image& _dst,
-		const sf::Vector2u& = sf::Vector2u(1,1));
+		const math::Matrix<float>& = {});
 
 	math::Matrix<float> operator()(unsigned x, unsigned y) const;
 };
@@ -34,12 +34,17 @@ public:
 		const sf::Image& _dst,
 		const sf::Vector2u& _kernelSize = sf::Vector2u(3, 3));
 
+	KernelDistance(const sf::Image& _src,
+		const sf::Image& _dst,
+		const math::Matrix<float>& _kernel);
+
 	math::Matrix<float> operator()(unsigned x, unsigned y) const;
 private:
-	math::Matrix<sf::Color> makeKernel(unsigned x, unsigned y) const;
+	using Kernel = math::Matrix<std::pair<float, sf::Color>>;
+	Kernel makeKernel(unsigned x, unsigned y) const;
 
-	sf::Vector2u m_kernelSize;
 	sf::Vector2u m_kernelHalSize;
+	math::Matrix<float> m_kernelWeights;
 };
 
 class BlurDistance : public DistanceBase
@@ -48,6 +53,10 @@ public:
 	BlurDistance(const sf::Image& _src,
 		const sf::Image& _dst,
 		const sf::Vector2u& _kernelSize = sf::Vector2u(3, 3));
+
+	BlurDistance(const sf::Image& _src,
+		const sf::Image& _dst,
+		const math::Matrix<float>& _kernel);
 
 	math::Matrix<float> operator()(unsigned x, unsigned y) const;
 private:

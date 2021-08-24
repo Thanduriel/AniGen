@@ -17,7 +17,7 @@ DistanceBase::DistanceBase(const sf::Image& _src, const sf::Image& _dst)
 // ************************************************************* //
 IdentityDistance::IdentityDistance(const sf::Image& _src,
 	const sf::Image& _dst,
-	const sf::Vector2u&)
+	const math::Matrix<float>&)
 	: DistanceBase(_src, _dst)
 {
 }
@@ -39,16 +39,22 @@ Matrix<float> IdentityDistance::operator()(unsigned x, unsigned y) const
 KernelDistance::KernelDistance(const sf::Image& _src,
 	const sf::Image& _dst,
 	const sf::Vector2u& _kernelSize)
+	: KernelDistance(_src,_dst, Matrix<float>(_kernelSize,1.f))
+{}
+
+KernelDistance::KernelDistance(const sf::Image& _src,
+	const sf::Image& _dst,
+	const math::Matrix<float>& _kernel)
 	: DistanceBase(_src, _dst),
-	m_kernelSize(_kernelSize),
-	m_kernelHalSize(_kernelSize.x / 2, _kernelSize.y / 2)
+	m_kernelWeights(_kernel),
+	m_kernelHalSize(_kernel.size.x / 2, _kernel.size.y / 2)
 {}
 
 Matrix<float> KernelDistance::operator()(unsigned x, unsigned y) const
 {
-	auto distance = [](const sf::Color& c1, const sf::Color& c2)
+	auto distance = [](const std::pair<float,sf::Color>& c1, const sf::Color& c2)
 	{
-		return c1 == c2 ? 0.f : 1.f;
+		return c1.second == c2 ? 0.f : c1.first;
 	};
 
 	auto sum = [](const Matrix<float>& result)
@@ -59,16 +65,16 @@ Matrix<float> KernelDistance::operator()(unsigned x, unsigned y) const
 	return applyConvolution(m_src, makeKernel(x, y), distance, sum);
 }
 
-Matrix<sf::Color> KernelDistance::makeKernel(unsigned x, unsigned y) const
+KernelDistance::Kernel KernelDistance::makeKernel(unsigned x, unsigned y) const
 {
-	Matrix<sf::Color> kernel(m_kernelSize);
+	Kernel kernel(m_kernelWeights.size);
 
-	for (unsigned i = 0; i < m_kernelSize.y; ++i)
-		for (unsigned j = 0; j < m_kernelSize.x; ++j)
+	for (unsigned i = 0; i < m_kernelWeights.size.y; ++i)
+		for (unsigned j = 0; j < m_kernelWeights.size.x; ++j)
 		{
 			const int xInd = static_cast<int>(x + j) - m_kernelHalSize.x;
 			const int yInd = static_cast<int>(y + i) - m_kernelHalSize.y;
-			kernel(j, i) = getPixelPadded(m_dst, xInd, yInd);
+			kernel(j, i) = std::make_pair(m_kernelWeights(j,i), getPixelPadded(m_dst, xInd, yInd));
 		}
 
 	return kernel;
@@ -78,16 +84,19 @@ Matrix<sf::Color> KernelDistance::makeKernel(unsigned x, unsigned y) const
 BlurDistance::BlurDistance(const sf::Image& _src,
 	const sf::Image& _dst,
 	const sf::Vector2u& _kernelSize)
+	: BlurDistance(_src, _dst, Matrix<float>(_kernelSize,1.f))
+{
+}
+
+BlurDistance::BlurDistance(const sf::Image& _src,
+	const sf::Image& _dst,
+	const math::Matrix<float>& _kernel)
 	: DistanceBase(_src, _dst)
 {
 	const sf::Vector2u size = _src.getSize();
 
-	const sf::Vector2u kernelHalf(_kernelSize.x / 2, _kernelSize.y / 2);
-	Matrix<float> kernel(_kernelSize, 1.f);
-	// the center pixel always takes precedence
-	kernel(kernelHalf.x, kernelHalf.y) = 100.f;
-
-	const float kernelSum = std::accumulate(kernel.begin(), kernel.end(), 0.f);
+	const sf::Vector2u kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);
+	const float kernelSum = std::accumulate(_kernel.begin(), _kernel.end(), 0.f);
 
 	auto sample = [](const float f, const sf::Color& color)
 	{
@@ -100,8 +109,8 @@ BlurDistance::BlurDistance(const sf::Image& _src,
 			/ kernelSum;
 	};
 
-	m_dstBlurred = math::applyConvolution(_dst, kernel, sample, sum);
-	m_srcBlurred = math::applyConvolution(_src, kernel, sample, sum);
+	m_dstBlurred = math::applyConvolution(_dst, _kernel, sample, sum);
+	m_srcBlurred = math::applyConvolution(_src, _kernel, sample, sum);
 }
 
 Matrix<float> BlurDistance::operator()(unsigned x, unsigned y) const
