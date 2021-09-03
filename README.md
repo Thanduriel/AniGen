@@ -6,18 +6,20 @@ To do this, it searches for each pixel in the target frames the pixel in the sou
 Then, this *transfer map* consisting of the coordinates of the source color for each pixel can be used to generate animations from the same animation source frame of a different object.
 
 ## Build
-Install the dependencies
+The dependencies are
 * [args](https://github.com/Taywee/args)
 * [SFML](https://www.sfml-dev.org/index.php)
 
-so that cmake finds them. Then just run
+You can either install them such that cmake's `find_package` can find them or use the provided submodules to build them automatically.
+Then just open a command line at the target location and run
 ```sh
-$ git clone https://gitlab.com/Just2D/anigen.git
-$ cd AniGen
+$ git clone https://gitlab.com/Just2D/anigen.git --recursive
+$ cd anigen
 $ mkdir build
 $ cd build
 $ cmake ..
 ```
+The recursive clone is only necessary if you want to use the submodules.
 
 ## Usage
 This is a command line tool. For a basic help and an overview of available parameters run
@@ -38,10 +40,11 @@ $ AniGen apply -i "Sprites/FullyAnimated/Template_Muscular_White/Male_Skin_White
 ### Similarity
 The similarity argument currently takes a string with the syntax
 ```
--s type_axb
--s type a x b m11 m21 ...; m21 m22 ...; ... // new format on head
+-s type_axb // old format of the first release
+-s "type a x b m11 m21 ...; m21 m22 ...; ..." // new format on head
 ```
 where *type* is either `equality` or `blur` and (*a*,*b*) is the size of a centered kernel.
+It follows an optional list of weights for the search kernel, with each row delimited by a `;`.
 
 ### Zone Map
 A zone map is pair of frames which restricts the search space for each pixel to the source region which shares the same color.
