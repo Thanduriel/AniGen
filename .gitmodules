@@ -1,0 +1,6 @@
+[submodule "dependencies/args"]
+	path = dependencies/args
+	url = https://github.com/Taywee/args.git
+[submodule "dependencies/SFML"]
+	path = dependencies/SFML
+	url = https://github.com/SFML/SFML.git
