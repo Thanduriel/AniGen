@@ -120,7 +120,6 @@ int main()
 		EXPECT(wrongResults == 0, "scalar convolution is applied correctly");
 
 		Matrix<int> largeKernel(sf::Vector2u(3, 5), 0);
-	//	for (int i = 0; i < 3; ++i)
 		largeKernel(1, 4) = 1;
 
 		auto largeConv = applyConvolution(image, largeKernel, sample, sum);

@@ -4,6 +4,7 @@
 #include <thread>
 #include <fstream>
 #include <filesystem>
+#include <array>
 
 #include <args.hxx>
 #include "spritesheet.hpp"
