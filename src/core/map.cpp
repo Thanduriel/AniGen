@@ -1,7 +1,7 @@
 #include "map.hpp"
-#include "utils.hpp"
-#include "spritesheet.hpp"
-#include "colors.hpp"
+#include "../utils.hpp"
+#include "../spritesheet.hpp"
+#include "../colors.hpp"
 
 #include <assert.h>
 #include <iostream>

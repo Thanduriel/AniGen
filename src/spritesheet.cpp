@@ -12,7 +12,6 @@ SpriteSheet::SpriteSheet(const std::string& _file, int _numFrames)
 	{
 		frames[i].create(frameSize.x, frameSize.y);
 		frames[i].copy(sprite, 0, 0, sf::IntRect(frameSize.x * i, 0, frameSize.x, frameSize.y));
-		//	image.saveToFile("frame" + std::to_string(i) + ".png");
 	}
 }
 

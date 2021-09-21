@@ -1,6 +1,6 @@
 #include "pixelsimilarity.hpp"
-#include "math/convolution.hpp"
-#include "math/vectorext.hpp"
+#include "../math/convolution.hpp"
+#include "../math/vectorext.hpp"
 
 #include <numeric>
 #include <cassert>

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
-#include "math/matrix.hpp"
-#include "utils.hpp"
+#include "../math/matrix.hpp"
+#include "../utils.hpp"
 
 #include <unordered_map>
 

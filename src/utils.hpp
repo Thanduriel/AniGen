@@ -4,7 +4,7 @@
 #include <string_view>
 
 namespace utils {
-	// @param Fn function that applies a function to the range (It,It)
+	// @param Fn function to be parallelized, should take a range (It,It)
 	// It must be random access for now
 	template<typename It, typename Fn>
 	void runMultiThreaded(It _begin, It _end, Fn _fn, size_t _numThreads = 1)

@@ -4,3 +4,6 @@
 _out
 .io_plugin_cache
 *.png
+*.exe
+*.pyc
+*.map

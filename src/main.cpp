@@ -8,9 +8,10 @@
 
 #include <args.hxx>
 #include "spritesheet.hpp"
-#include "map.hpp"
-#include "pixelsimilarity.hpp"
+#include "core/map.hpp"
+#include "core/pixelsimilarity.hpp"
 #include "colors.hpp"
+#include "eval/eval.hpp"
 
 using namespace math;
 
@@ -41,7 +42,7 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 	if (!ss || sizeSplit == std::string::npos || typeIt == SIMILARITY_TYPE_NAMES.end())
 	{
 		std::cerr << "[Warning] Could not parse the provided similarity_measure argument. Using defaults \"equlity_1x1\" instead.\n";
-		return { SimilarityType::Identity, sf::Vector2u(1, 1) };
+		return { SimilarityType::Identity, Matrix<float>(sf::Vector2u(1, 1)) };
 	}
 
 	Matrix<float> kernel;
@@ -52,24 +53,6 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 		type = SimilarityType::Identity;
 
 	return { type, kernel };
-}
-
-sf::Image imageDifference(const sf::Image& a, const sf::Image& b)
-{
-	sf::Image difImage;
-	const sf::Vector2u size = a.getSize();
-	difImage.create(size.x, size.y);
-
-	for (unsigned y = 0; y < size.y; ++y)
-	{
-		for (unsigned x = 0; x < size.x; ++x)
-		{
-			const sf::Color col1 = a.getPixel(x, y);
-			const sf::Color col2 = b.getPixel(x, y);
-			difImage.setPixel(x, y, absDist(col1, col2));
-		}
-	}
-	return difImage;
 }
 
 int main(int argc, char* argv[])
@@ -143,11 +126,16 @@ int main(int argc, char* argv[])
 		const auto inputNames = args::get(inputs);
 		sf::Image imgA;
 		imgA.loadFromFile(inputNames.front());
+		setZeroAlpha(imgA);
 		sf::Image imgB;
 		imgB.loadFromFile(args::get(targets).front());
-		const sf::Image result = imageDifference(imgA, imgB);
+		setZeroAlpha(imgB);
+		const sf::Image result = eval::imageDifference(imgA, imgB);
 		const std::string name = outputName ? args::get(outputName) : "absDiff";
 		result.saveToFile(name + ".png");
+		
+		std::cout << eval::relativeError(imgA, imgB, eval::PixelNeighbourhood(0));
+
 		return 0;
 	}
 
@@ -172,17 +160,8 @@ int main(int argc, char* argv[])
 				<< ") and the number of targets (" << targetNames.size() << ") need to be equal.";
 			return 1;
 		}
-		std::cout << "Building a transfer map from " << targetNames.size() << " samples.\n";
-
-	//	auto [_, animationName] = utils::splitName(targetNames[0]);
-	/*	for (size_t i = 01; i < targetNames.size(); ++i)
-		{
-		//	auto [__, aniName] = utils::splitName(targetNames[0]);
-			if (targetNames[i].find(animationName) == std::string::npos)
-				std::cout << "[Warning] Encountered inconsistent animation names, could not find \""
-				<< animationName << "\" in \""
-				<< targetNames[i] << "\". All target sheets should be of the same animation";
-		}*/
+		std::cout << "Building a transfer map from " << targetNames.size() 
+			<< (targetNames.size() > 1 ? " samples.\n" : "sample.\n");
 
 		// load targets
 		const int numFrames = args::get(framesTarget);
@@ -276,7 +255,6 @@ int main(int argc, char* argv[])
 		for (size_t i = 0; i < referenceSprites.size(); ++i)
 		{
 			const sf::Image& reference = referenceSprites[i];
-		//	const auto [baseName, _] = utils::splitName(inputNames[i]);
 
 			for (size_t j = 0; j < transferMaps.size(); ++j)
 			{
@@ -286,8 +264,6 @@ int main(int argc, char* argv[])
 					sheet.frames.emplace_back(applyMap(map, reference));
 				
 				const std::filesystem::path mapName = targetNames[j];
-			// const auto [_, animationName] = utils::splitName(targetNames[j]);
-			//	sheet.save(std::string(baseName) + "_" + std::string(animationName) + ".png");
 				const std::string objectName = args::get(outputName);
 				sheet.save(objectName + "_" + mapName.stem().string() + ".png");
 			}

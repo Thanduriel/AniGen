@@ -10,7 +10,7 @@ namespace math {
 	struct Matrix
 	{
 		Matrix() = default;
-		Matrix(const sf::Vector2u& _size, const T& _default = {})
+		explicit Matrix(const sf::Vector2u& _size, const T& _default = {})
 		{
 			resize(_size, _default);
 		}
@@ -30,13 +30,14 @@ namespace math {
 		const T& operator[](size_t _flat) const { return elements[_flat]; }
 		T& operator[](size_t _flat) { return elements[_flat]; }
 
+		// access through column x row
 		const T& operator()(unsigned x, unsigned y) const { return elements[flatIndex(x, y)]; }
 		T& operator()(unsigned x, unsigned y) { return elements[flatIndex(x, y)]; }
 
 		const T& operator()(const sf::Vector2u& _index) const { return elements[flatIndex(_index)]; }
 		T& operator()(const sf::Vector2u& _index) { return elements[flatIndex(_index)]; }
 
-
+		// 1D index of an element in the underlying array
 		size_t flatIndex(unsigned x, unsigned y) const
 		{
 			return x + static_cast<size_t>(y) * size.x;
@@ -176,30 +177,5 @@ namespace math {
 	{
 		_matrix.load(_in);
 		return _in;
-	/*	sf::Vector2u vec;
-		std::string delim;
-		if (_in >> vec.x >> delim >> vec.y && delim == "x")
-		{
-			_matrix.resize(vec);
-
-			for (unsigned y = 0; y < _matrix.size.y; ++y)
-			{
-				for (unsigned x = 0; x < _matrix.size.x; ++x)
-				{
-					T val;
-
-					if (_in >> val)
-						_matrix(x, y) = val;
-					else
-						return _in;
-				}
-				if (!(_in >> delim && delim == ";"))
-					return _in;
-			}
-		}
-		else
-			std::cerr << "[Error] Could not read the size of the matrix.\n";
-
-		return _in;*/
 	}
 }
