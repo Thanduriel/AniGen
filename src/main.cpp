@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
 	args::Group commands(parser, "commands");
 	args::Command applyMode(commands, "apply", "apply an existing map to a sprite");
 	args::Command createMode(commands, "create", "create a map from reference sprites");
-	args::Command diffMode(commands, "difference", "compute difference between two sprites");
+	args::Command diffMode(commands, "evaluate", "compute difference between two sprites");
 	
 	args::Group arguments("arguments");
 	args::HelpFlag help(arguments, "help", "display this help menu", { 'h', "help" });
@@ -134,7 +134,8 @@ int main(int argc, char* argv[])
 		const std::string name = outputName ? args::get(outputName) : "absDiff";
 		result.saveToFile(name + ".png");
 		
-		std::cout << eval::relativeError(imgA, imgB, eval::PixelNeighbourhood(0));
+		std::cout << eval::relativeError(imgA, imgB, eval::PixelNeighbourhood(0))
+			<< ", " << eval::relativeError(imgA, imgB, eval::PixelNeighbourhood(1));
 
 		return 0;
 	}
@@ -161,7 +162,7 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 		std::cout << "Building a transfer map from " << targetNames.size() 
-			<< (targetNames.size() > 1 ? " samples.\n" : "sample.\n");
+			<< (targetNames.size() > 1 ? " samples.\n" : " sample.\n");
 
 		// load targets
 		const int numFrames = args::get(framesTarget);

@@ -14,7 +14,7 @@ namespace eval {
 		
 		float operator()(unsigned _x, unsigned _y, const sf::Image& _a, const sf::Image& _b);
 	};
-	// Computes a single value for the difference between _a and _b,
+	// Computes a single value for the difference between _a and _b
 	// where 0 is equality.
 	template<typename Diff>
 	float relativeError(const sf::Image& _a, const sf::Image& _b, Diff _diff)
