@@ -4,7 +4,15 @@ import time
 from prettytable import PrettyTable
 from collections import namedtuple
 
-similarity_measures = ["identity 1 x 1 1;"]
+similarity_measures = ["identity 1 x 1 1;",
+					   "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;",
+					   "equality 3 x 3 1 1 1; 1 3 1; 1 1 1;",
+					   "equality 3 x 3 1 1 1; 1 11 1; 1 1 1;",
+					   "equality 3 x 3 0 1 0; 1 1 1; 0 1 0;",
+					   "equality 3 x 3 1 0 1; 0 1 0; 1 0 1;",
+					   "blur 3 x 3 1 1 1; 1 1 1; 1 1 1;",
+					   "blur 3 x 3 1 1 1; 1 11 1; 1 1 1;",
+					   "blur 3 x 3 1 0 1; 0 1 0; 1 0 1;",]
 
 # input name, input num frames, reference frame, target name, num target frames
 maps = [("Combat_Hit", 1, 0, "Block_1H_Rtrn", 1)]
@@ -22,11 +30,6 @@ directories = [
 	]
 
 zone_map = "-i \"../Sprites/Demo/Mask_Combat_Hit.png\" -t \"../Sprites/Demo/Mask_Block_1H_Rtrn.png\""
-
-#Point = namedtuple('Point', 'x y')
-
-reference_sets = [[0], [1], [0,1,2], [0,1,2,6,7], [2]]
-test_sets = [[3],[3],[3],[3], [4]]
 
 def run_experiment(map_args, ref_set, test_set, similarity_measure,
 	zone_map=None):
@@ -61,12 +64,47 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 
 	return list(map(float, result.stdout.split(","))), end-start
 
-results_table = PrettyTable()
-results_table.field_names = ["name", "inputs", "0-error", "1-error"]
-for map_args in maps:
-	for ref_set,test_set in zip(reference_sets, test_sets):
-		for similarity_measure in similarity_measures:
-			err, duration = run_experiment(map_args, ref_set, test_set, similarity_measure)
-			results_table.add_row(["armor", len(ref_set), err[0], err[1]])
+# run a list of experiments and generate a result table
+def make_table(experiments):
+	results_table = PrettyTable()
+	results_table.field_names = ["name", "inputs", "0-error", "1-error"]
 
-print(results_table)
+	for name, map_ind, ref_set, test_set, similarity_measure, zone_map in experiments:
+		err, duration = run_experiment(maps[map_ind], 
+									ref_set, 
+									test_set, 
+									similarity_measures[similarity_measure], 
+									zone_map)
+		results_table.add_row([name, len(ref_set), err[0], err[1]])
+
+	return results_table
+#for map_args in maps:
+#	for ref_set,test_set in zip(reference_sets, test_sets):
+#		for similarity_measure in similarity_measures:
+#			err, duration = run_experiment(map_args, ref_set, test_set, similarity_measure)
+#			results_table.add_row(["armor", len(ref_set), err[0], err[1]])
+
+
+Experiment = namedtuple('Experiment', 'name map reference_set test_set similarity_measure zone_map')
+experimentsBasic = [
+	Experiment("template 1x1", 0, [2], [4], 0, None)
+	]
+
+map_ind = 0
+similarity = 1
+exp_num_inputs = [
+	Experiment("1", map_ind, [0], [3], similarity, None),
+	Experiment("1", map_ind, [1], [3], similarity, None),
+	Experiment("3 template", map_ind, [0,1,2], [3], similarity, None),
+	Experiment("3", map_ind, [0,1,6], [3], similarity, None),
+	Experiment("4", map_ind, [0,1,2,6], [3], similarity, None),
+	Experiment("5", map_ind, [0,1,2,6,5], [3], similarity, None)
+	]
+
+exp_similarity = []
+for i in range(0,len(similarity_measures)):
+	exp_similarity.append(Experiment(similarity_measures[i], 0, [0,1,6], [3], i, None))
+
+#print(make_table(experimentsBasic))
+#print(make_table(exp_num_inputs))
+print(make_table(exp_similarity))
