@@ -55,7 +55,7 @@ TransferMap constructMap(const DistanceMeasure& _distanceMeasure,
 					if (zone.empty())
 					{
 						std::cout << "[Warning] Zone map is invalid. The color at ("
-							<< x << ", " << y << ") does not exist in the reference.";
+							<< x << ", " << y << ") does not exist in the reference.\n";
 					}
 					else
 					{
