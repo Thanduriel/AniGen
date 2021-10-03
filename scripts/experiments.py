@@ -49,7 +49,7 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 	dirs = [directories[i] for i in ref_set]
 	map_pairs, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
 	param_list = scan.make_param_list(map_pairs)
-	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4".format(
+	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop".format(
 		zone_map_cmd,
 		param_list, 
 		map_args[1], 
@@ -58,7 +58,7 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 		similarity_measure)
 
 	start = time.time()
-	subprocess.run(command, check=True, capture_output=True)
+	subprocess.run(command, check=True) # capture_output=True
 	end = time.time()
 	
 	# apply map
@@ -129,7 +129,7 @@ exp_similarity_optim = [
 		Experiment("unnamed", 2, [9,10], [11], 1, 0)
 	]
 #print(make_table(experimentsBasic))
-#print(make_table(exp_num_inputs))
+print(make_table(exp_num_inputs))
 #print(make_table(exp_similarity))
 
 #print(make_table(exp_similarity_optim))
@@ -138,7 +138,7 @@ kernel_size = 3
 def goal_fn(X):
 	err0 = 0
 	err1 = 0
-	similarity_measure = "blur {} x {}".format(kernel_size, kernel_size)
+	similarity_measure = "equality {} x {}".format(kernel_size, kernel_size)
 	for i in range(0, len(X)):
 		similarity_measure += " {}".format(X[i])
 		if (i+1) % kernel_size == 0:
@@ -155,23 +155,25 @@ def goal_fn(X):
 
 	return err0 + err1
 
-dim = kernel_size * kernel_size
-varbound = np.array([[0,1]]*dim)
-algorithm_param = {'max_num_iteration': 16,\
-                   'population_size':32,\
-                   'mutation_probability':0.1,\
-                   'elit_ratio': 0.01,\
-                   'crossover_probability': 0.5,\
-                   'parents_portion': 0.3,\
-                   'crossover_type':'uniform',\
-                   'max_iteration_without_improv':None}
+def run_optimization():
+	dim = kernel_size * kernel_size
+	varbound = np.array([[0,1]]*dim)
+	algorithm_param = {'max_num_iteration': 64,\
+					   'population_size':64,\
+					   'mutation_probability':0.1,\
+					   'elit_ratio': 0.01,\
+					   'crossover_probability': 0.5,\
+					   'parents_portion': 0.3,\
+					   'crossover_type':'uniform',\
+					   'max_iteration_without_improv':None}
 
-model=ga(function=goal_fn,
-		dimension=dim,
-		variable_type='real',
-		variable_boundaries=varbound,
-		algorithm_parameters=algorithm_param)
-model.run()
+	model=ga(function=goal_fn,
+			dimension=dim,
+			variable_type='real',
+			variable_boundaries=varbound,
+			algorithm_parameters=algorithm_param,
+			function_timeout=20)
+	model.run()
 
-print(model.report)
-print(model.ouput_dict)
+	print(model.report)
+	print(model.ouput_dict)

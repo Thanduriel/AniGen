@@ -91,10 +91,13 @@ int main(int argc, char* argv[])
 
 	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
 		"the similarity measure to use; either equality or blurred",
-		{ 's', "similarity" }, "equality_1x1");
+		{ 's', "similarity" }, "equality 1 x 1 1;");
 	args::Flag debugFlag(arguments, "debug", 
 		"for (apply) the reference image is combined with a high contrast image to better visualize the map", 
 		{ "debug" });
+	args::Flag cropFlag(arguments, "crop",
+		"for (create) crops images to the smallest size containing all pixels from the source images",
+		{ "crop" });
 	args::GlobalOptions globals(parser, arguments);
 	try
 	{
@@ -158,7 +161,7 @@ int main(int argc, char* argv[])
 		if (targetNames.size() != referenceSprites.size())
 		{
 			std::cerr << "[Error] The number of inputs (" << referenceSprites.size()
-				<< ") and the number of targets (" << targetNames.size() << ") need to be equal.";
+				<< ") and the number of targets (" << targetNames.size() << ") need to be equal.\n";
 			return 1;
 		}
 		std::cout << "Building a transfer map from " << targetNames.size() 
@@ -172,6 +175,25 @@ int main(int argc, char* argv[])
 		{
 			targetSheets.emplace_back(name, numFrames);
 			targetSheets.back().applyZeroAlpha();
+		}
+
+		const sf::Vector2u originalSize = referenceSprites.front().getSize();
+		sf::Vector2u originalPosition;
+		if (cropFlag)
+		{
+			std::vector<const sf::Image*> sprites;
+			for (const auto& sprite : referenceSprites)
+				sprites.push_back(&sprite);
+			for (const SpriteSheet& sheet : targetSheets)
+				for (const sf::Image& sprite : sheet.frames)
+					sprites.push_back(&sprite);
+			sf::IntRect minRect = computeMinRect(sprites, 2);
+			originalPosition = sf::Vector2u(minRect.left, minRect.top);
+
+			for (sf::Image& sprite : referenceSprites)
+				sprite = cropImage(sprite, minRect);
+			for (SpriteSheet& sheet : targetSheets)
+				sheet.crop(minRect);
 		}
 
 		// construct transfer maps and store them
@@ -198,9 +220,13 @@ int main(int argc, char* argv[])
 					else
 						distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
 				}
-				const TransferMap map = constructMap(GroupDistance(std::move(distances)), 
+				TransferMap map = constructMap(GroupDistance(std::move(distances)), 
 					zoneMap.get(),
 					numThreads);
+
+				applyMap(map, referenceSprites.front()).saveToFile("yolo.png");
+				if (cropFlag)
+					map = extendMap(map, originalSize, originalPosition);
 
 				file << map;
 			}

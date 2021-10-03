@@ -66,6 +66,22 @@ sf::Image distanceMap(const TransferMap& transferMap)
 	return distImage;
 }
 
+TransferMap extendMap(const TransferMap& _map,
+	const sf::Vector2u& _size,
+	const sf::Vector2u& _position)
+{
+	TransferMap result(_size);
+	for (unsigned y = 0; y < _size.y; ++y)
+		for (unsigned x = 0; x < _size.x; ++x)
+			result(x, y) = sf::Vector2u(x, y);
+
+	for (unsigned y = 0; y < _map.size.y; ++y)
+		for (unsigned x = 0; x < _map.size.x; ++x)
+			result(x + _position.x, y + _position.y) = _map(x, y) + _position;
+
+	return result;
+}
+
 std::pair<sf::Uint8, sf::Uint8> minMaxBrightness(const sf::Image& _reference)
 {
 	const sf::Vector2u size = _reference.getSize();

@@ -50,8 +50,6 @@ namespace math {
 					const unsigned kernelInd = j + i * _kernel.size.x;
 					kernelResult[kernelInd] = _dist(_kernel[kernelInd],
 						paddedImg.getPixel(xInd, yInd));
-					// sf::Color(*reinterpret_cast<const sf::Uint32*>(pixels + (xInd + yInd) * 4)));
-					//	getPixelPadded(_image, xInd, yInd));
 				}
 			}
 			return _reduce(kernelResult);

@@ -25,6 +25,11 @@ using TransferMap = math::Matrix<sf::Vector2u>;
 // Apply the map to a single image.
 sf::Image applyMap(const TransferMap& _map, const sf::Image& _src);
 
+// Extend a map with identity elements.
+TransferMap extendMap(const TransferMap& _map, 
+	const sf::Vector2u& _size, 
+	const sf::Vector2u& _position);
+
 /* Constructs a map that transforms _src to _dst.
  * A distance measure should be a functor with the signature
  *		Matrix<float> operator()(unsigned x, unsigned y)

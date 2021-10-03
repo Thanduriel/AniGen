@@ -40,25 +40,9 @@ std::pair<sf::Vector2u, sf::Vector2u> cropRect(const sf::Image& _image)
 
 void SpriteSheet::crop(const sf::IntRect& _rect)
 {
-for (auto& frame : frames)
+	for (auto& frame : frames)
 	{
-		sf::Image croped;
-		croped.create(_rect.width, _rect.height);
-		croped.copy(frame, 0u, 0u, _rect);
-		frame = croped;
-	}
-}
-
-void setZeroAlpha(sf::Image& _img)
-{
-	const sf::Vector2u size = _img.getSize();
-	for (unsigned y = 0; y < size.y; ++y)
-	{
-		for (unsigned x = 0; x < size.x; ++x)
-		{
-			if (_img.getPixel(x, y).a == 0)
-				_img.setPixel(x, y, sf::Color::Transparent);
-		}
+		frame = cropImage(frame, _rect);
 	}
 }
 
@@ -88,7 +72,32 @@ void SpriteSheet::save(const std::string& _file) const
 	combined.saveToFile(_file);
 }
 
-sf::IntRect computeMinRect(std::vector<SpriteSheet*> _sheets, unsigned _minBorder)
+// ************************************************************* //
+sf::IntRect computeMinRect(std::vector<const sf::Image*> _sprites, unsigned _minBorder)
+{
+	const sf::Vector2u size = _sprites.front()->getSize();
+	sf::Vector2u rectMin = size;
+	sf::Vector2u rectMax{};
+
+	for (auto& frame : _sprites)
+	{
+		auto [min, max] = cropRect(*frame);
+
+		if (rectMin.x > min.x) rectMin.x = min.x;
+		if (rectMin.y > min.y) rectMin.y = min.y;
+		if (rectMax.x < max.x) rectMax.x = max.x;
+		if (rectMax.y < max.y) rectMax.y = max.y;
+	}
+
+	const sf::Vector2u pos(rectMin.x > _minBorder ? rectMin.x - _minBorder : 0u, 
+		rectMin.y > _minBorder ? rectMin.y - _minBorder : 0u);
+	const sf::Vector2u posEnd = rectMax + sf::Vector2u(_minBorder, _minBorder);
+	const sf::Vector2u newSize( std::min(posEnd.x,size.x) - pos.x, std::min(posEnd.y, size.y) - pos.y);
+	
+	return sf::IntRect(sf::Vector2i(pos), sf::Vector2i(newSize));
+}
+
+sf::IntRect computeMinRect(std::vector<const SpriteSheet*> _sheets, unsigned _minBorder)
 {
 	sf::Vector2u rectMin = _sheets.front()->frames.front().getSize();
 	sf::Vector2u rectMax{};
@@ -106,9 +115,31 @@ sf::IntRect computeMinRect(std::vector<SpriteSheet*> _sheets, unsigned _minBorde
 		}
 	}
 
-	const sf::Vector2u pos(rectMin.x > _minBorder ? rectMin.x - _minBorder : 0u, 
+	const sf::Vector2u pos(rectMin.x > _minBorder ? rectMin.x - _minBorder : 0u,
 		rectMin.y > _minBorder ? rectMin.y - _minBorder : 0u);
 	const sf::Vector2u newSize = rectMax - pos + sf::Vector2u(_minBorder, _minBorder);
-	
+
 	return sf::IntRect(sf::Vector2i(pos), sf::Vector2i(newSize));
+}
+
+sf::Image cropImage(const sf::Image& _img, const sf::IntRect& _rect)
+{
+	sf::Image croped;
+	croped.create(_rect.width, _rect.height);
+	croped.copy(_img, 0u, 0u, _rect);
+	
+	return croped;
+}
+
+void setZeroAlpha(sf::Image& _img)
+{
+	const sf::Vector2u size = _img.getSize();
+	for (unsigned y = 0; y < size.y; ++y)
+	{
+		for (unsigned x = 0; x < size.x; ++x)
+		{
+			if (_img.getPixel(x, y).a == 0)
+				_img.setPixel(x, y, sf::Color::Transparent);
+		}
+	}
 }

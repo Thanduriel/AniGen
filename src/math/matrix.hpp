@@ -50,7 +50,7 @@ namespace math {
 		sf::Vector2u index(size_t flat) const
 		{
 			return sf::Vector2u(static_cast<unsigned>(flat % size.x),
-				static_cast<unsigned>(flat / size.y));
+				static_cast<unsigned>(flat / size.x));
 		}
 
 		auto begin() const { return elements.begin(); }
