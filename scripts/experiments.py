@@ -15,7 +15,8 @@ similarity_measures = ["identity 1 x 1 1;",
 					   "equality 3 x 3 1 0 1; 0 1 0; 1 0 1;",
 					   "blur 3 x 3 1 1 1; 1 1 1; 1 1 1;",
 					   "blur 3 x 3 1 1 1; 1 11 1; 1 1 1;",
-					   "blur 3 x 3 1 0 1; 0 1 0; 1 0 1;",]
+					   "blur 3 x 3 1 0 1; 0 1 0; 1 0 1;",
+					   "equality 3 x 3 0.845 0.529 0.732; 0.561 0.754 0.367; 0.758 0.141 0.243;"]
 
 # input name, input num frames, reference frame, target name, num target frames
 maps = [("Combat_Hit", 1, 0, "Block_1H_Rtrn", 1),
@@ -41,7 +42,9 @@ directories = [
 zone_map = ("\"../Sprites/Demo/Mask_Combat_Hit.png\"", "\"../Sprites/Demo/Mask_Block_1H_Rtrn.png\"")
 
 def run_experiment(map_args, ref_set, test_set, similarity_measure,
-	zone_map=None):
+	zone_map=None,
+	show_cmd_outputs=False,
+	crop_border=0):
 	# create map
 	zone_map_cmd = ""
 	if zone_map:
@@ -49,16 +52,17 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 	dirs = [directories[i] for i in ref_set]
 	map_pairs, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
 	param_list = scan.make_param_list(map_pairs)
-	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop".format(
+	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop {}".format(
 		zone_map_cmd,
 		param_list, 
 		map_args[1], 
 		map_args[4], 
 		map_args[2],
-		similarity_measure)
+		similarity_measure,
+		crop_border)
 
 	start = time.time()
-	subprocess.run(command, check=True) # capture_output=True
+	subprocess.run(command, check=True, capture_output=not show_cmd_outputs)
 	end = time.time()
 	
 	# apply map
@@ -69,7 +73,7 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 		map_args[1], 
 		map_args[4], 
 		map_args[2],)
-	subprocess.run(command, check=True, capture_output=True)
+	subprocess.run(command, check=True, capture_output=not show_cmd_outputs)
 	
 	# evaluate result
 	command = "AniGen evaluate -i \"{}\" -t sprite_test.png".format(map_pairs[0][1])
@@ -80,23 +84,18 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 # run a list of experiments and generate a result table
 def make_table(experiments):
 	results_table = PrettyTable()
-	results_table.field_names = ["name", "inputs", "0-error", "1-error"]
+	results_table.field_names = ["name", "0-error", "1-error"]
 
 	for name, map_ind, ref_set, test_set, similarity_measure, zone_map in experiments:
 		err, duration = run_experiment(maps[map_ind], 
 									ref_set, 
 									test_set, 
 									similarity_measures[similarity_measure], 
-									zone_map)
-		results_table.add_row([name, len(ref_set), err[0], err[1]])
+									zone_map,
+									show_cmd_outputs=True)
+		results_table.add_row([name, err[0], err[1]])
 
 	return results_table
-#for map_args in maps:
-#	for ref_set,test_set in zip(reference_sets, test_sets):
-#		for similarity_measure in similarity_measures:
-#			err, duration = run_experiment(map_args, ref_set, test_set, similarity_measure)
-#			results_table.add_row(["armor", len(ref_set), err[0], err[1]])
-
 
 Experiment = namedtuple('Experiment', 'name map reference_set test_set similarity_measure zone_map')
 experimentsBasic = [
@@ -104,7 +103,7 @@ experimentsBasic = [
 	]
 
 map_ind = 0
-similarity = 1
+similarity = 9
 use_zone_map = zone_map
 exp_num_inputs = [
 	Experiment("1", map_ind, [0], [3], similarity, zone_map),
@@ -114,23 +113,23 @@ exp_num_inputs = [
 	Experiment("3", map_ind, [0,1,6], [3], similarity, use_zone_map),
 	Experiment("4", map_ind, [0,1,2,6], [3], similarity, use_zone_map),
 	Experiment("5", map_ind, [0,1,2,6,5], [3], similarity, use_zone_map)
-	]
+]
 
 exp_similarity = []
 for i in range(0,len(similarity_measures)):
 	exp_similarity.append(Experiment(similarity_measures[i], 0, [0,1,6], [3], i, None))
 
 exp_similarity_optim = [
-		Experiment("unnamed", 0, [0,1,6], [3], 1, 0),
-		Experiment("unnamed", 0, [5,3,6], [0], 1, 0),
-		Experiment("unnamed", 0, [9,10], [11], 1, 0),
-		Experiment("unnamed", 2, [0,1,6], [3], 1, 0),
-		Experiment("unnamed", 2, [5,3,6], [0], 1, 0),
-		Experiment("unnamed", 2, [9,10], [11], 1, 0)
-	]
+	Experiment("unnamed", 0, [0,1,6], [3], similarity, 0),
+	Experiment("unnamed", 0, [5,3,6], [0], similarity, 0),
+	Experiment("unnamed", 0, [9,10], [11], similarity, 0),
+	Experiment("unnamed", 2, [0,1,6], [3], similarity, 0),
+	Experiment("unnamed", 2, [5,3,6], [0], similarity, 0),
+	Experiment("unnamed", 2, [9,10], [11], similarity, 0)
+]
 #print(make_table(experimentsBasic))
-print(make_table(exp_num_inputs))
-#print(make_table(exp_similarity))
+#print(make_table(exp_num_inputs))
+print(make_table(exp_similarity))
 
 #print(make_table(exp_similarity_optim))
 
@@ -149,7 +148,8 @@ def goal_fn(X):
 								ref_set, 
 								test_set, 
 								similarity_measure, 
-								zone_map)
+								zone_map,
+								crop_border=kernel_size//2+1)
 		err0 += err[0]
 		err1 += err[1]
 
@@ -158,10 +158,10 @@ def goal_fn(X):
 def run_optimization():
 	dim = kernel_size * kernel_size
 	varbound = np.array([[0,1]]*dim)
-	algorithm_param = {'max_num_iteration': 64,\
-					   'population_size':64,\
+	algorithm_param = {'max_num_iteration': 100,\
+					   'population_size':100,\
 					   'mutation_probability':0.1,\
-					   'elit_ratio': 0.01,\
+					   'elit_ratio': 0.02,\
 					   'crossover_probability': 0.5,\
 					   'parents_portion': 0.3,\
 					   'crossover_type':'uniform',\
@@ -176,4 +176,6 @@ def run_optimization():
 	model.run()
 
 	print(model.report)
-	print(model.ouput_dict)
+	print(model.output_dict)
+
+#run_optimization()

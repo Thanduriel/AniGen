@@ -30,6 +30,8 @@ const std::array<std::string, static_cast<size_t>(SimilarityType::Count)> SIMILA
 	{"blur"},
 } };
 
+constexpr const char* defaultSimilarity = "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;";
+
 std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& _arg)
 {
 	std::stringstream ss(_arg);
@@ -41,8 +43,9 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 
 	if (!ss || sizeSplit == std::string::npos || typeIt == SIMILARITY_TYPE_NAMES.end())
 	{
-		std::cerr << "[Warning] Could not parse the provided similarity_measure argument. Using defaults \"equlity_1x1\" instead.\n";
-		return { SimilarityType::Identity, Matrix<float>(sf::Vector2u(1, 1)) };
+		std::cerr << "[Warning] Could not parse the provided similarity_measure argument. Using defaults \""
+			<< defaultSimilarity << "\" instead.\n";
+		return parseSimilarityArg(std::string(defaultSimilarity));
 	}
 
 	Matrix<float> kernel;
@@ -91,13 +94,13 @@ int main(int argc, char* argv[])
 
 	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
 		"the similarity measure to use; either equality or blurred",
-		{ 's', "similarity" }, "equality 1 x 1 1;");
+		{ 's', "similarity" }, defaultSimilarity);
 	args::Flag debugFlag(arguments, "debug", 
 		"for (apply) the reference image is combined with a high contrast image to better visualize the map", 
 		{ "debug" });
-	args::Flag cropFlag(arguments, "crop",
-		"for (create) crops images to the smallest size containing all pixels from the source images",
-		{ "crop" });
+	args::ValueFlag<int> cropMinBorder(arguments, "crop_border",
+		"accelerate (create) by cropping the empty frame around each sprite to at most crop_border pixels",
+		{ "crop" }, 0);
 	args::GlobalOptions globals(parser, arguments);
 	try
 	{
@@ -179,7 +182,8 @@ int main(int argc, char* argv[])
 
 		const sf::Vector2u originalSize = referenceSprites.front().getSize();
 		sf::Vector2u originalPosition;
-		if (cropFlag)
+		const int minBorder = args::get(cropMinBorder);
+		if (minBorder)
 		{
 			std::vector<const sf::Image*> sprites;
 			for (const auto& sprite : referenceSprites)
@@ -187,7 +191,7 @@ int main(int argc, char* argv[])
 			for (const SpriteSheet& sheet : targetSheets)
 				for (const sf::Image& sprite : sheet.frames)
 					sprites.push_back(&sprite);
-			sf::IntRect minRect = computeMinRect(sprites, 2);
+			sf::IntRect minRect = computeMinRect(sprites, minBorder);
 			originalPosition = sf::Vector2u(minRect.left, minRect.top);
 
 			for (sf::Image& sprite : referenceSprites)
@@ -225,7 +229,7 @@ int main(int argc, char* argv[])
 					numThreads);
 
 				applyMap(map, referenceSprites.front()).saveToFile("yolo.png");
-				if (cropFlag)
+				if (minBorder)
 					map = extendMap(map, originalSize, originalPosition);
 
 				file << map;
