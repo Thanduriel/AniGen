@@ -1,6 +1,7 @@
 import os
 import argparse
 
+# Scans the given directories for files containing the animation names.
 def find_reference_pairs(directories, input_ani, target_ani):
 	input_files = []
 	target_files = []
@@ -28,7 +29,8 @@ def find_reference_pairs(directories, input_ani, target_ani):
 
 	return map_pairs, obj_names
 
-def make_param_list(map_pairs):
+# Takes a list of (input,target) tuples and generates the associated part of the argument list.
+def make_arg_list(map_pairs):
 	command = ""
 	for input_file, target_file in map_pairs:
 		command += "-i \"{}\" -t \"{}\" ".format(input_file, target_file)
@@ -45,4 +47,4 @@ if __name__ == "__main__":
 	map_pairs,obj_names = find_reference_pairs(args.directories, args.input_ani, args.target_ani)
 
 	print("Found matching assets for {}.\n".format(obj_names))
-	print(make_param_list(map_pairs))
+	print(make_arg_list(map_pairs))

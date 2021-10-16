@@ -228,7 +228,6 @@ int main(int argc, char* argv[])
 					zoneMap.get(),
 					numThreads);
 
-				applyMap(map, referenceSprites.front()).saveToFile("yolo.png");
 				if (minBorder)
 					map = extendMap(map, originalSize, originalPosition);
 

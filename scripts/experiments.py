@@ -51,12 +51,12 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 		zone_map_cmd = "-i {} -t {} -z".format(zone_map[0], zone_map[1])
 	dirs = [directories[i] for i in ref_set]
 	map_pairs, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
-	param_list = scan.make_param_list(map_pairs)
+	arg_list = scan.make_arg_list(map_pairs)
 	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop {}".format(
 		zone_map_cmd,
-		param_list, 
-		map_args[1], 
-		map_args[4], 
+		arg_list, 
+		map_args[1],
+		map_args[4],
 		map_args[2],
 		similarity_measure,
 		crop_border)
@@ -72,7 +72,7 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 		map_pairs[0][0],
 		map_args[1], 
 		map_args[4], 
-		map_args[2],)
+		map_args[2])
 	subprocess.run(command, check=True, capture_output=not show_cmd_outputs)
 	
 	# evaluate result
@@ -96,42 +96,6 @@ def make_table(experiments):
 		results_table.add_row([name, err[0], err[1]])
 
 	return results_table
-
-Experiment = namedtuple('Experiment', 'name map reference_set test_set similarity_measure zone_map')
-experimentsBasic = [
-	Experiment("template 1x1", 0, [2], [4], 0, None)
-	]
-
-map_ind = 0
-similarity = 9
-use_zone_map = zone_map
-exp_num_inputs = [
-	Experiment("1", map_ind, [0], [3], similarity, zone_map),
-	Experiment("1", map_ind, [1], [3], similarity, use_zone_map),
-	Experiment("2", map_ind, [0,1], [3], similarity, use_zone_map),
-	Experiment("3 template", map_ind, [0,1,2], [3], similarity, use_zone_map),
-	Experiment("3", map_ind, [0,1,6], [3], similarity, use_zone_map),
-	Experiment("4", map_ind, [0,1,2,6], [3], similarity, use_zone_map),
-	Experiment("5", map_ind, [0,1,2,6,5], [3], similarity, use_zone_map)
-]
-
-exp_similarity = []
-for i in range(0,len(similarity_measures)):
-	exp_similarity.append(Experiment(similarity_measures[i], 0, [0,1,6], [3], i, None))
-
-exp_similarity_optim = [
-	Experiment("unnamed", 0, [0,1,6], [3], similarity, 0),
-	Experiment("unnamed", 0, [5,3,6], [0], similarity, 0),
-	Experiment("unnamed", 0, [9,10], [11], similarity, 0),
-	Experiment("unnamed", 2, [0,1,6], [3], similarity, 0),
-	Experiment("unnamed", 2, [5,3,6], [0], similarity, 0),
-	Experiment("unnamed", 2, [9,10], [11], similarity, 0)
-]
-#print(make_table(experimentsBasic))
-#print(make_table(exp_num_inputs))
-print(make_table(exp_similarity))
-
-#print(make_table(exp_similarity_optim))
 
 kernel_size = 3
 def goal_fn(X):
@@ -178,4 +142,44 @@ def run_optimization():
 	print(model.report)
 	print(model.output_dict)
 
-#run_optimization()
+def main():
+	Experiment = namedtuple('Experiment', 'name map reference_set test_set similarity_measure zone_map')
+	experimentsBasic = [
+		Experiment("template 1x1", 0, [2], [4], 0, None)
+	]
+
+	map_ind = 2
+	similarity = 1
+	use_zone_map = zone_map
+	exp_num_inputs = [
+		Experiment("1", map_ind, [0], [3], similarity, zone_map),
+		Experiment("1", map_ind, [1], [3], similarity, use_zone_map),
+		Experiment("2", map_ind, [0,1], [3], similarity, use_zone_map),
+		Experiment("3 template", map_ind, [0,1,2], [3], similarity, use_zone_map),
+		Experiment("3", map_ind, [0,1,6], [3], similarity, use_zone_map),
+		Experiment("4", map_ind, [0,1,2,6], [3], similarity, use_zone_map),
+		Experiment("5", map_ind, [0,1,2,6,5], [3], similarity, use_zone_map)
+	]
+
+	exp_similarity = []
+	for i in range(0,len(similarity_measures)):
+		exp_similarity.append(Experiment(similarity_measures[i], 0, [0,1,6], [3], i, None))
+
+	exp_similarity_optim = [
+		Experiment("unnamed", 0, [0,1,6], [3], similarity, 0),
+		Experiment("unnamed", 0, [5,3,6], [0], similarity, 0),
+		Experiment("unnamed", 0, [9,10], [11], similarity, 0),
+		Experiment("unnamed", 2, [0,1,6], [3], similarity, 0),
+		Experiment("unnamed", 2, [5,3,6], [0], similarity, 0),
+		Experiment("unnamed", 2, [9,10], [11], similarity, 0)
+	]
+	#print(make_table(experimentsBasic))
+	#print(make_table(exp_num_inputs))
+	#print(make_table(exp_similarity))
+
+	#print(make_table(exp_similarity_optim))
+	#run_optimization()
+	print(make_table([Experiment("holes", 2, [0,1,2,5,6], [3], 2, 0)]))
+
+if __name__ == "__main__":
+	main()
