@@ -133,8 +133,6 @@ sf::Image makeColorGradientImage(const sf::Image& _reference, bool _rgb)
 	{
 		for (unsigned x = 0; x < size.x; ++x)
 		{
-			if (x == 34 && y == 24)
-				int brk = 42;
 			const sf::Color color = _reference.getPixel(x, y);
 			const float dx = std::abs(static_cast<float>(x) / size.x);
 			const float dy = std::abs(static_cast<float>(y) / size.y);
@@ -153,6 +151,23 @@ sf::Image colorMap(const TransferMap& transferMap, const sf::Image& _reference, 
 	sf::Image prototypeImg = makeColorGradientImage(_reference, _rgb);
 	sf::Image result = applyMap(transferMap, prototypeImg);
 	return SpriteSheet({ std::move(prototypeImg), std::move(result) }).getCombined();
+}
+
+sf::Image matToImage(const Matrix<float>& _mat)
+{
+	sf::Image img;
+	auto maxIt = std::max_element(_mat.begin(), _mat.end());
+	const float max = *maxIt > 0.f ? std::max(1.f, *maxIt) : 1.f;
+
+	img.create(_mat.size.x, _mat.size.y);
+	for (unsigned y = 0; y < _mat.size.y; ++y)
+		for (unsigned x = 0; x < _mat.size.x; ++x)
+		{
+			const sf::Uint8 c = static_cast<sf::Uint8>(255.f * _mat(x, y) / max);
+			img.setPixel(x, y, sf::Color(c, c, c));
+		}
+
+	return img;
 }
 
 // ************************************************************* //

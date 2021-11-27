@@ -47,7 +47,8 @@ KernelDistance::KernelDistance(const sf::Image& _src,
 	const math::Matrix<float>& _kernel)
 	: DistanceBase(_src, _dst),
 	m_kernelWeights(_kernel),
-	m_kernelHalSize(_kernel.size.x / 2, _kernel.size.y / 2)
+	m_kernelHalSize(_kernel.size.x / 2, _kernel.size.y / 2),
+	m_kernelSum(std::accumulate(m_kernelWeights.begin(), m_kernelWeights.end(), 0.f))
 {}
 
 Matrix<float> KernelDistance::operator()(unsigned x, unsigned y) const
@@ -57,9 +58,10 @@ Matrix<float> KernelDistance::operator()(unsigned x, unsigned y) const
 		return c1.second == c2 ? 0.f : c1.first;
 	};
 
-	auto sum = [](const Matrix<float>& result)
+	auto sum = [this](const Matrix<float>& result)
 	{
-		return std::accumulate(result.begin(), result.end(), 0.f);
+		return std::accumulate(result.begin(), result.end(), 0.f)
+			/ m_kernelSum;
 	};
 
 	return applyConvolution(m_src, makeKernel(x, y), distance, sum);

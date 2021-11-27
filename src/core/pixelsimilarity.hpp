@@ -45,6 +45,7 @@ private:
 
 	sf::Vector2u m_kernelHalSize;
 	math::Matrix<float> m_kernelWeights;
+	float m_kernelSum;
 };
 
 class BlurDistance : public DistanceBase
@@ -104,12 +105,36 @@ public:
 		for (size_t i = 1; i < m_distances.size(); ++i)
 			distance += m_distances[i](x, y);
 
+		distance *= 1.f / m_distances.size();
+
 		return distance;
 	}
 
 	sf::Vector2u getSize() const { return m_distances.front().getSize(); }
 private:
 
+	std::vector<DistanceMeasure> m_distances;
+};
+
+template<typename DistanceMeasure>
+class GroupMinDistance
+{
+public:
+	explicit GroupMinDistance(std::vector<DistanceMeasure>&& _distanceMeasures)
+		: m_distances(std::move(_distanceMeasures))
+	{}
+
+	math::Matrix<float> operator()(unsigned x, unsigned y) const
+	{
+		math::Matrix<float> distance = m_distances[0](x, y);
+		for (size_t i = 1; i < m_distances.size(); ++i)
+			distance = math::min(distance, m_distances[i](x, y));
+
+		return distance;
+	}
+
+	sf::Vector2u getSize() const { return m_distances.front().getSize(); }
+private:
 	std::vector<DistanceMeasure> m_distances;
 };
 

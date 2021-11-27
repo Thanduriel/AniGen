@@ -15,7 +15,7 @@ namespace math {
 		return a.x * b.x + a.y * b.y + a.z * b.z;
 	}
 
-	// squared distance
+	// Euclidean squared distance
 	template<typename T>
 	T distSq(const sf::Vector3<T>& a, const sf::Vector3<T>& b)
 	{
@@ -24,9 +24,10 @@ namespace math {
 		return dot(dif, dif);
 	}
 
+	// Euclidean distance
 	template<typename T>
 	T dist(const sf::Vector3<T>& a, const sf::Vector3<T>& b)
 	{
-		return std::sqrt(distsq(a, b));
+		return std::sqrt(distSq(a, b));
 	}
 }

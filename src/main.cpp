@@ -20,14 +20,18 @@ enum struct SimilarityType
 	Identity,
 	Equality,
 	Blur,
-	Count
+	EqualityMin,
+	BlurMin,
+	COUNT
 };
 
-const std::array<std::string, static_cast<size_t>(SimilarityType::Count)> SIMILARITY_TYPE_NAMES =
+const std::array<std::string, static_cast<size_t>(SimilarityType::COUNT)> SIMILARITY_TYPE_NAMES =
 { {
 	{"identity"},
 	{"equality"},
 	{"blur"},
+	{"equalitymin"},
+	{"blurmin"}
 } };
 
 constexpr const char* defaultSimilarity = "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;";
@@ -93,10 +97,10 @@ int main(int argc, char* argv[])
 		{ 'z', "zones" });
 
 	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
-		"the similarity measure to use; either equality or blurred",
+		"a string describing the similarity measure to use for map creation; general form: \"type a x b m11 m21 ...; m21 m22 ...; ...\"",
 		{ 's', "similarity" }, defaultSimilarity);
 	args::Flag debugFlag(arguments, "debug", 
-		"for (apply) the reference image is combined with a high contrast image to better visualize the map", 
+		"during (create) additional information is output; for (apply) the reference image is combined with a high contrast image to better visualize the map", 
 		{ "debug" });
 	args::ValueFlag<int> cropMinBorder(arguments, "crop_border",
 		"accelerate (create) by cropping the empty frame around each sprite to at most crop_border pixels",
@@ -203,7 +207,9 @@ int main(int argc, char* argv[])
 		// construct transfer maps and store them
 		const std::string mapName = args::get(outputName);
 		std::ofstream file(mapName);
-		auto makeMaps = [&]<typename Similarity, bool WithId>(const Matrix<float>& _kernel)
+		std::vector<sf::Image> confidenceImgs;
+		auto makeMaps = [&]<typename Similarity, template<typename> class Group, bool WithId>
+			(const Matrix<float>& _kernel)
 		{
 			for (int i = 0; i < numFrames; ++i)
 			{
@@ -224,7 +230,7 @@ int main(int argc, char* argv[])
 					else
 						distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
 				}
-				TransferMap map = constructMap(GroupDistance(std::move(distances)), 
+				auto [map, confidence] = constructMap(Group(std::move(distances)),
 					zoneMap.get(),
 					numThreads);
 
@@ -232,18 +238,31 @@ int main(int argc, char* argv[])
 					map = extendMap(map, originalSize, originalPosition);
 
 				file << map;
+
+				if (debugFlag)
+					confidenceImgs.emplace_back(matToImage(confidence));
 			}
 		};
 		auto [type, kernel] = parseSimilarityArg(args::get(similarityMeasure));
 		switch (type)
 		{
-		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance, false>(kernel);
+		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance, GroupDistance, false>(kernel);
 			break;
-		case SimilarityType::Equality: makeMaps.operator()<KernelDistance, false>(kernel);
+		case SimilarityType::Equality: makeMaps.operator()<KernelDistance, GroupDistance, false>(kernel);
 			break;
-		case SimilarityType::Blur: makeMaps.operator()<BlurDistance, false>(kernel);
+		case SimilarityType::Blur: makeMaps.operator()<BlurDistance, GroupDistance, false>(kernel);
+			break;
+		case SimilarityType::EqualityMin: makeMaps.operator()<KernelDistance, GroupMinDistance, false>(kernel);
+			break;
+		case SimilarityType::BlurMin: makeMaps.operator()<BlurDistance, GroupMinDistance, false>(kernel);
 			break;
 		};
+
+		if (debugFlag)
+		{
+			SpriteSheet sheet(std::move(confidenceImgs));
+			sheet.save("confidence.png");
+		}
 
 	}
 	else if (applyMode)

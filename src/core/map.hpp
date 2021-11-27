@@ -35,14 +35,17 @@ TransferMap extendMap(const TransferMap& _map,
  *		Matrix<float> operator()(unsigned x, unsigned y)
  * that determines how similar (x,y) is to each pixel in the destination image,
  * where 0 is a perfect match. See pixelsimilarity.hpp for implementations.
+ * @return The transfer map and a matrix with the final distance for each pixel.
  */
 template<typename DistanceMeasure>
-TransferMap constructMap(const DistanceMeasure& _distanceMeasure,
+auto constructMap(const DistanceMeasure& _distanceMeasure,
 	const ZoneMap* _zoneMap = nullptr,
 	unsigned _numThreads = 1)
+	-> std::pair<TransferMap, math::Matrix<float>>
 {
 	const sf::Vector2u size = _distanceMeasure.getSize();
 	TransferMap map(size);
+	math::Matrix<float> confidence(size);
 
 	auto computeRows = [&](unsigned begin, unsigned end)
 	{
@@ -84,13 +87,14 @@ TransferMap constructMap(const DistanceMeasure& _distanceMeasure,
 				}
 
 				map(x, y) = distance.index(minInd);
+				confidence(x, y) = distance[minInd];
 			}
 		}
 	};
 
 	utils::runMultiThreaded(0u, size.y, computeRows, _numThreads);
 
-	return map;
+	return { map, confidence };
 }
 
 // direct visualization of a TransferMap where distances are color coded
@@ -102,6 +106,9 @@ sf::Image distanceMap(const TransferMap& _transferMap);
 sf::Image makeColorGradientImage(const sf::Image& _reference, bool _rgb = true);
 // visualize by applying the map to a high contrast image
 sf::Image colorMap(const TransferMap& _transferMap, const sf::Image& _reference, bool _rgb = true);
+
+// Encode matrix as gray scale image.
+sf::Image matToImage(const math::Matrix<float>& _mat);
 
 // serialization
 std::ostream& operator<<(std::ostream& _out, const TransferMap& _transferMap);
