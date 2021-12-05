@@ -5,6 +5,7 @@
 #include <fstream>
 #include <filesystem>
 #include <array>
+#include <concepts>
 
 #include <args.hxx>
 #include "spritesheet.hpp"
@@ -109,7 +110,12 @@ int main(int argc, char* argv[])
 	args::ValueFlag<int> cropMinBorder(arguments, "crop_border",
 		"accelerate (create) by cropping the empty frame around each sprite to at most crop_border pixels",
 		{ "crop" }, 0);
+	args::ValueFlag<float> discardTreshold(arguments, "discard_threshold",
+		"discards distance values during (create) with multiple sprites if are larger mean + threshold; distance values are in the range [0,1]",
+		{ "threshold" }, 1.0);
+
 	args::GlobalOptions globals(parser, arguments);
+
 	try
 	{
 		parser.ParseCLI(argc, argv);
@@ -220,6 +226,7 @@ int main(int argc, char* argv[])
 				using SimilarityT = std::conditional_t<WithId,
 					MaskCompositionDistance<IdentityDistance, Similarity>,
 					Similarity>;
+				using GroupSimilarity = Group<Similarity>;
 				std::vector<SimilarityT> distances;
 				// make zone map
 				std::unique_ptr<ZoneMap> zoneMap;
@@ -234,7 +241,21 @@ int main(int argc, char* argv[])
 					else
 						distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
 				}
-				auto [map, confidence] = constructMap(Group(std::move(distances)),
+
+				auto constructGroupSim = [&]()
+				{
+					if constexpr (std::is_constructible_v<GroupSimilarity, std::vector<SimilarityT>, float>)
+					{
+						const float threshold = args::get(discardTreshold);
+						return GroupSimilarity(std::move(distances), threshold);
+					}
+					else
+					{
+						return GroupSimilarity(std::move(distances));
+					}
+				};
+				
+				auto [map, confidence] = constructMap(constructGroupSim(),
 					zoneMap.get(),
 					numThreads);
 
@@ -248,15 +269,16 @@ int main(int argc, char* argv[])
 			}
 		};
 		auto [type, kernel] = parseSimilarityArg(args::get(similarityMeasure));
+
 		switch (type)
 		{
-		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance, GroupDistance, false>(kernel);
+		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance, GroupDistanceThreshold, false>(kernel);
 			break;
-		case SimilarityType::Equality: makeMaps.operator()<KernelDistance, GroupDistance, false>(kernel);
+		case SimilarityType::Equality: makeMaps.operator()<KernelDistance, GroupDistanceThreshold, false>(kernel);
 			break;
-		case SimilarityType::Blur: makeMaps.operator()<BlurDistance, GroupDistance, false>(kernel);
+		case SimilarityType::Blur: makeMaps.operator()<BlurDistance, GroupDistanceThreshold, false>(kernel);
 			break;
-		case SimilarityType::EqualityRotInv:makeMaps.operator() < RotInvariantKernelDistance, GroupDistance, false > (kernel);
+		case SimilarityType::EqualityRotInv:makeMaps.operator() <RotInvariantKernelDistance, GroupDistanceThreshold, false > (kernel);
 			break;
 		case SimilarityType::MinEquality: makeMaps.operator()<KernelDistance, GroupMinDistance, false>(kernel);
 			break;

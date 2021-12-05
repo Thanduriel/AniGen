@@ -118,7 +118,53 @@ public:
 
 	sf::Vector2u getSize() const { return m_distances.front().getSize(); }
 private:
+	std::vector<DistanceMeasure> m_distances;
+};
 
+template<typename DistanceMeasure>
+class GroupDistanceThreshold
+{
+public:
+	explicit GroupDistanceThreshold(std::vector<DistanceMeasure>&& _distanceMeasures,
+			float _threshold = 1.f)
+		: m_distances(std::move(_distanceMeasures)),
+		m_discardThreshold(_threshold)
+	{}
+
+	math::Matrix<float> operator()(unsigned x, unsigned y) const
+	{
+		std::vector<math::Matrix<float>> dists;
+		dists.reserve(m_distances.size());
+		dists.emplace_back(m_distances[0](x, y));
+		auto distSum = dists.front();
+
+		for (size_t i = 1; i < m_distances.size(); ++i)
+		{
+			dists.emplace_back(m_distances[i](x, y));
+			distSum += dists.back();
+		}
+
+		for (size_t i = 0; i < dists.front().elements.size(); ++i)
+		{
+			size_t numMeasures = m_distances.size();
+			const float threshold = distSum[i] / numMeasures + m_discardThreshold;
+			for (auto& d : dists)
+			{
+				if (d[i] > threshold)
+				{
+					distSum[i] -= d[i];
+					--numMeasures;
+				}
+			}
+			distSum[i] *= 1.f / numMeasures;
+		}
+
+		return distSum;
+	}
+
+	sf::Vector2u getSize() const { return m_distances.front().getSize(); }
+private:
+	float m_discardThreshold;
 	std::vector<DistanceMeasure> m_distances;
 };
 
