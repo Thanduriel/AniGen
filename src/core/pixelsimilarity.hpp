@@ -30,21 +30,27 @@ public:
 class KernelDistance : public DistanceBase
 {
 public:
+	// Create a kernel distance measure with constant weights.
 	KernelDistance(const sf::Image& _src,
 		const sf::Image& _dst,
-		const sf::Vector2u& _kernelSize = sf::Vector2u(3, 3));
+		const sf::Vector2u& _kernelSize = sf::Vector2u(3, 3),
+		float _rotation = 0.f);
 
 	KernelDistance(const sf::Image& _src,
 		const sf::Image& _dst,
-		const math::Matrix<float>& _kernel);
+		const math::Matrix<float>& _kernel,
+		float _rotation = 0.f);
 
 	math::Matrix<float> operator()(unsigned x, unsigned y) const;
+
+	const math::Matrix<sf::Vector2i>& sampleCoords() const { return m_sampleCoords; }
 private:
 	using Kernel = math::Matrix<std::pair<float, sf::Color>>;
 	Kernel makeKernel(unsigned x, unsigned y) const;
 
 	sf::Vector2u m_kernelHalSize;
 	math::Matrix<float> m_kernelWeights;
+	math::Matrix<sf::Vector2i> m_sampleCoords;
 	float m_kernelSum;
 };
 
@@ -136,6 +142,15 @@ public:
 	sf::Vector2u getSize() const { return m_distances.front().getSize(); }
 private:
 	std::vector<DistanceMeasure> m_distances;
+};
+
+class RotInvariantKernelDistance : public GroupMinDistance<KernelDistance>
+{
+public:
+	RotInvariantKernelDistance(const sf::Image& _src,
+		const sf::Image& _dst,
+		const math::Matrix<float>& _kernel);
+private:
 };
 
 // composition of two distances that returns DistMeasure2 if DistMeasure1 is 0

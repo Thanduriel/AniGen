@@ -154,8 +154,6 @@ namespace math {
 	template<typename T>
 	Matrix<T>& operator*=(Matrix<T>& lhs, T rhs)
 	{
-		assert(lhs.size == rhs.size);
-
 		for (size_t i = 0; i < lhs.elements.size(); ++i)
 			lhs[i] *= rhs;
 
@@ -175,9 +173,23 @@ namespace math {
 	}
 
 	template<typename T>
+	bool operator==(const Matrix<T>& lhs, const Matrix<T>& rhs)
+	{
+		if (lhs.size != rhs.size) return false;
+
+		Matrix<T> result = lhs;
+		for (size_t i = 0; i < lhs.elements.size(); ++i)
+			if (lhs[i] != rhs[i])
+				return false;
+
+		return true;
+	}
+
+	template<typename T>
 	Matrix<T> min(const Matrix<T>& lhs, const Matrix<T>& rhs)
 	{
 		assert(lhs.size == rhs.size);
+
 		Matrix<T> result(lhs.size);
 		for (size_t i = 0; i < lhs.elements.size(); ++i)
 			result[i] = std::min(lhs[i], rhs[i]);

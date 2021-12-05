@@ -12,15 +12,15 @@ list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/main.cpp")
 # organize the files according to the organisation in the file system
 # from: http:#cmake.3232098.n2.nabble.com/Keep-folder-structure-in-Visual-Studio-Project-generated-with-CMake-td7586044.html
 macro(GroupSources curdir)
-   file(GLOB children RELATIVE ${PROJECT_SOURCE_DIR}/${curdir} ${PROJECT_SOURCE_DIR}/${curdir}/*)
-   foreach(child ${children})
-          if(IS_DIRECTORY ${PROJECT_SOURCE_DIR}/${curdir}/${child})
-                  GroupSources(${curdir}/${child})
-          else()
-                  string(REPLACE "/" "\\" groupname ${curdir})
-            source_group(${groupname} FILES ${PROJECT_SOURCE_DIR}/${curdir}/${child})
-          endif()
-   endforeach()
+	file(GLOB children RELATIVE ${PROJECT_SOURCE_DIR}/${curdir} ${PROJECT_SOURCE_DIR}/${curdir}/*)
+	foreach(child ${children})
+		if(IS_DIRECTORY ${PROJECT_SOURCE_DIR}/${curdir}/${child})
+			GroupSources(${curdir}/${child})
+		else()
+			string(REPLACE "/" "\\" groupname ${curdir})
+		source_group(${groupname} FILES ${PROJECT_SOURCE_DIR}/${curdir}/${child})
+		endif()
+	endforeach()
 endmacro()
 
 # execute tha macro
@@ -28,21 +28,21 @@ GroupSources(src)
 
 add_library(AniGenLib ${SOURCE_FILES})
 set_target_properties(AniGenLib PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED YES
+	CXX_STANDARD 20
+	CXX_STANDARD_REQUIRED YES
 )
 
 add_executable(AniGen "src/main.cpp")
 set_target_properties(AniGen PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED YES
+	CXX_STANDARD 20
+	CXX_STANDARD_REQUIRED YES
 )
 target_link_libraries(AniGen PRIVATE AniGenLib)
 
 add_executable(Tests "tests/tests.cpp")
 set_target_properties(Tests PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED YES
+	CXX_STANDARD 20
+	CXX_STANDARD_REQUIRED YES
 )
 target_link_libraries(Tests PRIVATE AniGenLib)
 target_include_directories(Tests PRIVATE "src/")

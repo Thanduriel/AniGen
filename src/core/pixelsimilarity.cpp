@@ -38,18 +38,35 @@ Matrix<float> IdentityDistance::operator()(unsigned x, unsigned y) const
 // ************************************************************* //
 KernelDistance::KernelDistance(const sf::Image& _src,
 	const sf::Image& _dst,
-	const sf::Vector2u& _kernelSize)
-	: KernelDistance(_src,_dst, Matrix<float>(_kernelSize,1.f))
+	const sf::Vector2u& _kernelSize,
+	float _rotation)
+	: KernelDistance(_src,_dst, Matrix<float>(_kernelSize,1.f), _rotation)
 {}
 
 KernelDistance::KernelDistance(const sf::Image& _src,
 	const sf::Image& _dst,
-	const math::Matrix<float>& _kernel)
+	const math::Matrix<float>& _kernel,
+	float _rotation)
 	: DistanceBase(_src, _dst),
 	m_kernelWeights(_kernel),
 	m_kernelHalSize(_kernel.size.x / 2, _kernel.size.y / 2),
-	m_kernelSum(std::accumulate(m_kernelWeights.begin(), m_kernelWeights.end(), 0.f))
-{}
+	m_kernelSum(std::accumulate(m_kernelWeights.begin(), m_kernelWeights.end(), 0.f)),
+	m_sampleCoords(_kernel.size)
+{
+	const int kernelSizeX = m_kernelWeights.size.x;
+	const int kernelSizeY = m_kernelWeights.size.y;
+	for (int j = 0; j < kernelSizeY; ++j)
+		for (int i = 0; i < kernelSizeX; ++i)
+		{
+			const float cos = std::cos(_rotation);
+			const float sin = std::sin(_rotation);
+			// signs for y get flipped during rotation since img coords start in the upper left
+			const sf::Vector2f pos(i - static_cast<int>(m_kernelHalSize.x), 
+				-(j - static_cast<int>(m_kernelHalSize.y)));
+			const sf::Vector2f rotated(pos.x * cos - pos.y * sin, pos.x * sin + pos.y * cos);
+			m_sampleCoords(i, j) = sf::Vector2i(std::round(rotated.x), -std::round(rotated.y));
+		}
+}
 
 Matrix<float> KernelDistance::operator()(unsigned x, unsigned y) const
 {
@@ -71,12 +88,12 @@ KernelDistance::Kernel KernelDistance::makeKernel(unsigned x, unsigned y) const
 {
 	Kernel kernel(m_kernelWeights.size);
 
-	for (unsigned i = 0; i < m_kernelWeights.size.y; ++i)
-		for (unsigned j = 0; j < m_kernelWeights.size.x; ++j)
+	for (unsigned j = 0; j < m_kernelWeights.size.y; ++j)
+		for (unsigned i = 0; i < m_kernelWeights.size.x; ++i)
 		{
-			const int xInd = static_cast<int>(x + j) - m_kernelHalSize.x;
-			const int yInd = static_cast<int>(y + i) - m_kernelHalSize.y;
-			kernel(j, i) = std::make_pair(m_kernelWeights(j,i), getPixelPadded(m_dst, xInd, yInd));
+			const int xInd = x + m_sampleCoords(i,j).x;
+			const int yInd = y + m_sampleCoords(i,j).y;
+			kernel(i, j) = std::make_pair(m_kernelWeights(i,j), getPixelPadded(m_dst, xInd, yInd));
 		}
 
 	return kernel;
@@ -126,4 +143,20 @@ Matrix<float> BlurDistance::operator()(unsigned x, unsigned y) const
 		distances[i] = math::distSq(m_srcBlurred[i], color);
 	}
 	return distances;
+}
+
+// ************************************************************* //
+RotInvariantKernelDistance::RotInvariantKernelDistance(const sf::Image& _src,
+	const sf::Image& _dst,
+	const math::Matrix<float>& _kernel)
+	: GroupMinDistance({ 
+		KernelDistance(_src, _dst, _kernel, 0.f),
+		KernelDistance(_src, _dst, _kernel, 0.25f),
+		KernelDistance(_src, _dst, _kernel, 0.5f),
+		KernelDistance(_src, _dst, _kernel, 0.75f),
+		KernelDistance(_src, _dst, _kernel, 1.f),
+		KernelDistance(_src, _dst, _kernel, 1.25f),
+		KernelDistance(_src, _dst, _kernel, 1.5f),
+		KernelDistance(_src, _dst, _kernel, 1.75f)})
+{
 }

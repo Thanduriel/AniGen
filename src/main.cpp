@@ -20,8 +20,10 @@ enum struct SimilarityType
 	Identity,
 	Equality,
 	Blur,
-	EqualityMin,
-	BlurMin,
+	EqualityRotInv,
+	MinEquality,
+	MinBlur,
+	MinEqualityRotInv,
 	COUNT
 };
 
@@ -30,8 +32,10 @@ const std::array<std::string, static_cast<size_t>(SimilarityType::COUNT)> SIMILA
 	{"identity"},
 	{"equality"},
 	{"blur"},
-	{"equalitymin"},
-	{"blurmin"}
+	{"equalityrotinv"},
+	{"minequality"},
+	{"minblur"},
+	{"minequalityrotinv"}
 } };
 
 constexpr const char* defaultSimilarity = "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;";
@@ -252,9 +256,13 @@ int main(int argc, char* argv[])
 			break;
 		case SimilarityType::Blur: makeMaps.operator()<BlurDistance, GroupDistance, false>(kernel);
 			break;
-		case SimilarityType::EqualityMin: makeMaps.operator()<KernelDistance, GroupMinDistance, false>(kernel);
+		case SimilarityType::EqualityRotInv:makeMaps.operator() < RotInvariantKernelDistance, GroupDistance, false > (kernel);
 			break;
-		case SimilarityType::BlurMin: makeMaps.operator()<BlurDistance, GroupMinDistance, false>(kernel);
+		case SimilarityType::MinEquality: makeMaps.operator()<KernelDistance, GroupMinDistance, false>(kernel);
+			break;
+		case SimilarityType::MinBlur: makeMaps.operator()<BlurDistance, GroupMinDistance, false>(kernel);
+			break;
+		case SimilarityType::MinEqualityRotInv:makeMaps.operator() < RotInvariantKernelDistance, GroupMinDistance, false > (kernel);
 			break;
 		};
 

@@ -16,7 +16,10 @@ similarity_measures = ["identity 1 x 1 1;",
 					   "blur 3 x 3 1 1 1; 1 1 1; 1 1 1;",
 					   "blur 3 x 3 1 1 1; 1 11 1; 1 1 1;",
 					   "blur 3 x 3 1 0 1; 0 1 0; 1 0 1;",
-					   "equality 3 x 3 0.845 0.529 0.732; 0.561 0.754 0.367; 0.758 0.141 0.243;"]
+					   "equality 3 x 3 0.845 0.529 0.732; 0.561 0.754 0.367; 0.758 0.141 0.243;",
+					   "equalityrotinv 3 x 3 1 1 1; 1 3 1; 1 1 1;",
+					   "minblur 3 x 3 1 1 1; 1 3 1; 1 1 1;",
+					   "minequalityrotinv 3 x 3 1 1 1; 1 3 1; 1 1 1;",]
 
 # input name, input num frames, reference frame, target name, num target frames
 maps = [("Combat_Hit", 1, 0, "Block_1H_Rtrn", 1),
@@ -163,7 +166,7 @@ def main():
 
 	exp_similarity = []
 	for i in range(0,len(similarity_measures)):
-		exp_similarity.append(Experiment(similarity_measures[i], 0, [0,1,6], [3], i, None))
+		exp_similarity.append(Experiment(similarity_measures[i], 2, [0,1,2,6,5], [3], i, None))
 
 	exp_similarity_optim = [
 		Experiment("unnamed", 0, [0,1,6], [3], similarity, 0),
@@ -175,11 +178,13 @@ def main():
 	]
 	#print(make_table(experimentsBasic))
 	#print(make_table(exp_num_inputs))
-	#print(make_table(exp_similarity))
+	print(make_table(exp_similarity))
 
 	#print(make_table(exp_similarity_optim))
 	#run_optimization()
-	print(make_table([Experiment("holes", 2, [0,1,2,5,6], [3], 2, 0)]))
+	#print(make_table([Experiment("holes", 2, [0,1,2,5,6], [3], 2, 0)]))
+
+	#make_table([exp_similarity[2]])
 
 if __name__ == "__main__":
 	main()

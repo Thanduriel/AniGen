@@ -1,11 +1,13 @@
 #include <core/map.hpp>
 #include <math/vectorext.hpp>
 #include <math/convolution.hpp>
+#include <core/pixelsimilarity.hpp>
 
 #include <numeric>
 #include <iostream>
 #include <random>
 #include <fstream>
+#include <numbers>
 
 # define EXPECT(cond,description)										\
 do {																	\
@@ -58,7 +60,7 @@ int main()
 	}
 
 	// text file matrix
-	math::Matrix<float> mat1(sf::Vector2u(3,5));
+	math::Matrix<float> mat1(sf::Vector2u(3, 5));
 	std::uniform_real_distribution<float> fDist;
 	for (float& el : mat1)
 		el = fDist(rng);
@@ -73,7 +75,7 @@ int main()
 		inFile >> mat2;
 		EXPECT(mat1.size == mat2.size, "matrix as text file has correct dimensions");
 		bool epsEqual = true;
-		for(size_t i = 0; i < mat1.elements.size(); ++i)
+		for (size_t i = 0; i < mat1.elements.size(); ++i)
 			if (std::abs(mat1[i] - mat2[i]) > 0.0001)
 			{
 				epsEqual = false;
@@ -87,15 +89,15 @@ int main()
 		using namespace math;
 		sf::Image image;
 		sf::Vector2u size(8, 16);
-		image.create(size.x, size.y, sf::Color(255,0,0));
+		image.create(size.x, size.y, sf::Color(255, 0, 0));
 		for (unsigned x = 0; x < size.x; ++x)
 			image.setPixel(x, x, sf::Color(0, 4, 0));
 
-		const Matrix<int> scalarKernel(sf::Vector2u(1,1), 2);
+		const Matrix<int> scalarKernel(sf::Vector2u(1, 1), 2);
 
 		auto sample = [](int s, const sf::Color& color)
 		{
-			return s * sf::Vector3i(color.r,color.g,color.b);
+			return s * sf::Vector3i(color.r, color.g, color.b);
 		};
 
 		auto sum = [](const Matrix<sf::Vector3i>& result)
@@ -130,7 +132,7 @@ int main()
 			{
 				const sf::Color color = image.getPixel(x, y);
 				const sf::Vector3i colorVec(color.r, color.g, color.b);
-				if (largeConv(x, y-2) != colorVec)
+				if (largeConv(x, y - 2) != colorVec)
 					++wrongResults;
 			}
 		for (unsigned y = size.y - 2; y < size.y; ++y)
@@ -138,6 +140,69 @@ int main()
 				if (largeConv(x, y) != sf::Vector3i{})
 					++wrongResults;
 		EXPECT(wrongResults == 0, "padded convolution is applied correctly");
+	}
+
+	// rotation of kernel distance
+	{
+		using std::numbers::pi;
+		sf::Image img;
+		const sf::Vector2u kSize = sf::Vector2u(3, 3);
+		KernelDistance dist0(img, img, kSize, 0.f);
+		math::Matrix<sf::Vector2i> sampleCoords(dist0.sampleCoords().size);
+
+		for (int j = 0; j < 3; ++j)
+			for (int i = 0; i < 3; ++i)
+			{
+				sampleCoords(i, j) = sf::Vector2(i - 1, j - 1);
+			}
+		EXPECT(sampleCoords == dist0.sampleCoords(), "0 rotation is identity");
+
+		auto rotatePi4 = [&]() 
+		{
+			for (sf::Vector2i& el : sampleCoords)
+				el = sf::Vector2i(el.y, -el.x);
+		};
+		rotatePi4();
+		EXPECT(sampleCoords == KernelDistance(img, img, kSize, pi * 0.5f).sampleCoords(),
+			"pi/2 rotation");
+
+		rotatePi4();
+		EXPECT(sampleCoords == KernelDistance(img, img, kSize, pi).sampleCoords(), 
+			"pi rotation");
+
+		rotatePi4();
+		EXPECT(sampleCoords == KernelDistance(img, img, kSize, pi * 1.5f).sampleCoords(),
+			"1.5pi rotation");
+
+		rotatePi4();
+		EXPECT(sampleCoords == dist0.sampleCoords(),
+			"2pi rotation");
+
+		sampleCoords(0, 0) = sf::Vector2i(-1, 0);
+		sampleCoords(1, 0) = sf::Vector2i(-1, -1);
+		sampleCoords(2, 0) = sf::Vector2i(0, -1);
+
+		sampleCoords(0, 1) = sf::Vector2i(-1, 1);
+		sampleCoords(1, 1) = sf::Vector2i(0, 0);
+		sampleCoords(2, 1) = sf::Vector2i(1, -1);
+
+		sampleCoords(0, 2) = sf::Vector2i(0, 1);
+		sampleCoords(1, 2) = sf::Vector2i(1, 1);
+		sampleCoords(2, 2) = sf::Vector2i(1, 0);
+		EXPECT(sampleCoords == KernelDistance(img, img, kSize, pi * 0.25f).sampleCoords(),
+			"pi/4 rotation");
+
+		rotatePi4();
+		EXPECT(sampleCoords == KernelDistance(img, img, kSize, pi * 0.75f).sampleCoords(),
+			"3/4 pi rotation");
+
+		rotatePi4();
+		EXPECT(sampleCoords == KernelDistance(img, img, kSize, pi * 1.25f).sampleCoords(),
+			"5/4 pi rotation");
+
+		rotatePi4();
+		EXPECT(sampleCoords == KernelDistance(img, img, kSize, pi * 1.75f).sampleCoords(),
+			"7/4 pi rotation");
 	}
 
 	std::cout << "\nSuccessfully finished tests " << testsRun - testsFailed << "/" << testsRun << "\n";
