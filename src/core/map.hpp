@@ -13,6 +13,10 @@ public:
 
 	using PixelList = std::vector<size_t>;
 	const PixelList& operator()(unsigned x, unsigned y) const;
+	const PixelList& operator()(sf::Color _col) const;
+
+	auto begin() const { return m_srcZones.begin(); }
+	auto end() const { return m_srcZones.end(); }
 private:
 	std::unordered_map<sf::Uint32, PixelList> m_srcZones;
 	const sf::Image& m_dst;

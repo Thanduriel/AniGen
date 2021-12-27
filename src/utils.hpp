@@ -39,4 +39,22 @@ namespace utils {
 		auto end = str.find_last_of(".");
 		return { str.substr(0, begin), str.substr(begin + 1, end - begin) };
 	}
+
+	// type trait that checks for the operator<<(S&, T)
+	template <typename S, typename T, typename = void>
+	struct is_stream_writable : std::false_type {};
+	template <typename S, typename T>
+	struct is_stream_writable<S,
+		T,
+		std::void_t<decltype(std::declval<S&>() << std::declval<T>())>>
+		: std::true_type {};
+
+	// type trait that checks for the operator>>(S&, T&)
+	template <typename S, typename T, typename = void>
+	struct is_stream_readable : std::false_type {};
+	template <typename S, typename T>
+	struct is_stream_readable<S,
+		T,
+		std::void_t<decltype(std::declval<S&>() >> std::declval<T&>())>>
+		: std::true_type {};
 }

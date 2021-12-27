@@ -3,6 +3,7 @@
 #include <SFML/System/Vector2.hpp>
 #include <cassert>
 #include <iostream>
+#include "../utils.hpp"
 
 namespace math {
 	// dynamic sized matrix
@@ -67,8 +68,8 @@ namespace math {
 				elements.size() * sizeof(T));
 		}
 
-		template<typename Stream>
-		requires requires (T x) { std::declval<std::ofstream>() << x; }
+		template<typename Stream, typename = std::enable_if_t<utils::is_stream_writable<Stream,T>::value>>
+	//	requires requires (T x) { std::declval<std::ofstream>() << x; }
 		void save(Stream& _stream) const
 		{
 			_stream << size.x << " x " << size.y << "\n";
@@ -94,8 +95,9 @@ namespace math {
 			_stream.read(reinterpret_cast<char*>(elements.data()), elements.size() * sizeof(T));
 		}
 
-		std::istream& load(std::istream& _in, T _default = {})
-			requires requires (T x) { std::declval<std::ifstream>() >> x; }
+		template<typename Stream, typename = std::enable_if_t<utils::is_stream_readable<Stream, T>::value>>
+		Stream& load(Stream& _in, T _default = {})
+	//	requires requires (T x) { std::declval<std::ifstream>() >> x; }
 		{
 			sf::Vector2u vec;
 			std::string delim;
@@ -196,16 +198,16 @@ namespace math {
 		return result;
 	}
 
-	template<typename T>
-	requires requires (T x) { std::declval<std::ofstream>()  << x; }
+	template<typename T, typename = std::enable_if_t<utils::is_stream_writable<std::ostream, T>::value>>
+//	requires requires (T x) { std::declval<std::ofstream>()  << x; }
 	std::ostream& operator<<(std::ostream& _out, const Matrix<T>& _matrix)
 	{
 		_matrix.save(_out);
 		return _out;
 	}
 
-	template<typename T>
-	requires requires (T x) { std::declval<std::ifstream>() >> x; }
+	template<typename T, typename = std::enable_if_t<utils::is_stream_readable<std::istream, T>::value>>
+//	requires requires (T x) { std::declval<std::ifstream>() >> x; }
 	std::istream& operator>>(std::istream& _in, Matrix<T>& _matrix)
 	{
 		_matrix.load(_in);

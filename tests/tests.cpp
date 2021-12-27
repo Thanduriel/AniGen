@@ -7,7 +7,7 @@
 #include <iostream>
 #include <random>
 #include <fstream>
-#include <numbers>
+//#include <numbers>
 
 # define EXPECT(cond,description)										\
 do {																	\
@@ -144,7 +144,8 @@ int main()
 
 	// rotation of kernel distance
 	{
-		using std::numbers::pi;
+	//	using std::numbers::pi;
+		constexpr float pi = 3.14159265f;
 		sf::Image img;
 		const sf::Vector2u kSize = sf::Vector2u(3, 3);
 		KernelDistance dist0(img, img, kSize, 0.f);

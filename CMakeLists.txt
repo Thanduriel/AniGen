@@ -5,11 +5,18 @@ project (SpriteAniGen)
 # main project
 #---------------------------------------------------------------------------------------
 
+OPTION(WITH_TORCH "Build with alternative map generation. Requires torch." OFF)
+
 # find all source and header files
 file(GLOB_RECURSE SOURCE_FILES "src/*.cpp" "src/*.hpp" "src/*.inl")
 list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/main.cpp")
 
-# organize the files according to the organisation in the file system
+if (NOT WITH_TORCH)
+	list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/core/optim.cpp")
+	list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/core/optim.hpp")
+endif ()
+
+# organize the files according to the organization in the file system
 # from: http:#cmake.3232098.n2.nabble.com/Keep-folder-structure-in-Visual-Studio-Project-generated-with-CMake-td7586044.html
 macro(GroupSources curdir)
 	file(GLOB children RELATIVE ${PROJECT_SOURCE_DIR}/${curdir} ${PROJECT_SOURCE_DIR}/${curdir}/*)
@@ -28,25 +35,24 @@ GroupSources(src)
 
 add_library(AniGenLib ${SOURCE_FILES})
 set_target_properties(AniGenLib PROPERTIES
-	CXX_STANDARD 20
+	CXX_STANDARD 17
 	CXX_STANDARD_REQUIRED YES
 )
 
 add_executable(AniGen "src/main.cpp")
 set_target_properties(AniGen PROPERTIES
-	CXX_STANDARD 20
+	CXX_STANDARD 17
 	CXX_STANDARD_REQUIRED YES
 )
 target_link_libraries(AniGen PRIVATE AniGenLib)
 
 add_executable(Tests "tests/tests.cpp")
 set_target_properties(Tests PROPERTIES
-	CXX_STANDARD 20
+	CXX_STANDARD 17
 	CXX_STANDARD_REQUIRED YES
 )
 target_link_libraries(Tests PRIVATE AniGenLib)
 target_include_directories(Tests PRIVATE "src/")
-
 
 if (MSVC)
 	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT AniGen)
@@ -86,3 +92,8 @@ if (NOT args_FOUND)
 else()
 	target_link_libraries(AniGen PRIVATE taywee::args)
 endif(NOT args_FOUND)
+
+if (WITH_TORCH)
+	find_package(Torch REQUIRED)
+	target_link_libraries(AniGenLib PUBLIC "${TORCH_LIBRARIES}")
+endif (WITH_TORCH)

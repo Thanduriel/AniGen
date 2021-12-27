@@ -67,6 +67,72 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 	return { type, kernel };
 }
 
+struct MapMaker
+{
+	bool zoneMapFlag;
+	int numFrames;
+	std::vector<sf::Image>& referenceSprites;
+	std::vector<SpriteSheet>& targetSheets;
+	float discardThreshold;
+	unsigned numThreads;
+	int minBorder;
+	sf::Vector2u originalSize;
+	sf::Vector2u originalPosition;
+	std::ofstream& file;
+	bool debugFlag;
+	std::vector<sf::Image>& confidenceImgs;
+
+	template<typename Similarity, template<typename> class Group, bool WithId>
+	void run(const Matrix<float>& _kernel)
+	{
+		for (int i = 0; i < numFrames; ++i)
+		{
+			using SimilarityT = std::conditional_t<WithId,
+				MaskCompositionDistance<IdentityDistance, Similarity>,
+				Similarity>;
+			using GroupSimilarity = Group<Similarity>;
+			std::vector<SimilarityT> distances;
+			// make zone map
+			std::unique_ptr<ZoneMap> zoneMap;
+			if (zoneMapFlag)
+				zoneMap = std::make_unique<ZoneMap>(referenceSprites[0], targetSheets[0].frames[i]);
+
+			for (size_t j = zoneMap ? 1 : 0; j < targetSheets.size(); ++j)
+			{
+				if constexpr (WithId)
+					distances.emplace_back(IdentityDistance(referenceSprites[j], targetSheets[j].frames[i], _kernel),
+						Similarity(referenceSprites[j], targetSheets[j].frames[i], _kernel));
+				else
+					distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
+			}
+
+			auto constructGroupSim = [&]()
+			{
+				if constexpr (std::is_constructible_v<GroupSimilarity, std::vector<SimilarityT>, float>)
+				{
+					return GroupSimilarity(std::move(distances), discardThreshold);
+				}
+				else
+				{
+					return GroupSimilarity(std::move(distances));
+				}
+			};
+
+			auto [map, confidence] = constructMap(constructGroupSim(),
+				zoneMap.get(),
+				numThreads);
+
+			if (minBorder)
+				map = extendMap(map, originalSize, originalPosition);
+
+			file << map;
+
+			if (debugFlag)
+				confidenceImgs.emplace_back(matToImage(confidence));
+		}
+	}
+};
+
 int main(int argc, char* argv[])
 {
 	args::ArgumentParser parser("Sprite animation generator.");
@@ -218,73 +284,37 @@ int main(int argc, char* argv[])
 		const std::string mapName = args::get(outputName);
 		std::ofstream file(mapName);
 		std::vector<sf::Image> confidenceImgs;
-		auto makeMaps = [&]<typename Similarity, template<typename> class Group, bool WithId>
-			(const Matrix<float>& _kernel)
-		{
-			for (int i = 0; i < numFrames; ++i)
-			{
-				using SimilarityT = std::conditional_t<WithId,
-					MaskCompositionDistance<IdentityDistance, Similarity>,
-					Similarity>;
-				using GroupSimilarity = Group<Similarity>;
-				std::vector<SimilarityT> distances;
-				// make zone map
-				std::unique_ptr<ZoneMap> zoneMap;
-				if (zoneMapFlag)
-					zoneMap = std::make_unique<ZoneMap>(referenceSprites[0], targetSheets[0].frames[i]);
 
-				for (size_t j = zoneMap ? 1 : 0; j < targetSheets.size(); ++j)
-				{
-					if constexpr (WithId)
-						distances.emplace_back(IdentityDistance(referenceSprites[j], targetSheets[j].frames[i], _kernel),
-							Similarity(referenceSprites[j], targetSheets[j].frames[i], _kernel));
-					else
-						distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
-				}
-
-				auto constructGroupSim = [&]()
-				{
-					if constexpr (std::is_constructible_v<GroupSimilarity, std::vector<SimilarityT>, float>)
-					{
-						const float threshold = args::get(discardTreshold);
-						return GroupSimilarity(std::move(distances), threshold);
-					}
-					else
-					{
-						return GroupSimilarity(std::move(distances));
-					}
-				};
-				
-				auto [map, confidence] = constructMap(constructGroupSim(),
-					zoneMap.get(),
-					numThreads);
-
-				if (minBorder)
-					map = extendMap(map, originalSize, originalPosition);
-
-				file << map;
-
-				if (debugFlag)
-					confidenceImgs.emplace_back(matToImage(confidence));
-			}
-		};
 		auto [type, kernel] = parseSimilarityArg(args::get(similarityMeasure));
+
+		MapMaker maker{ zoneMapFlag, 
+			numFrames, 
+			referenceSprites, 
+			targetSheets, 
+			args::get(discardTreshold),
+			numThreads,
+			minBorder,
+			originalSize,
+			originalPosition,
+			file,
+			debugFlag,
+			confidenceImgs};
 
 		switch (type)
 		{
-		case SimilarityType::Identity: makeMaps.operator()<IdentityDistance, GroupDistanceThreshold, false>(kernel);
+		case SimilarityType::Identity: maker.run<IdentityDistance, GroupDistanceThreshold, false>(kernel);
 			break;
-		case SimilarityType::Equality: makeMaps.operator()<KernelDistance, GroupDistanceThreshold, false>(kernel);
+		case SimilarityType::Equality: maker.run<KernelDistance, GroupDistanceThreshold, false>(kernel);
 			break;
-		case SimilarityType::Blur: makeMaps.operator()<BlurDistance, GroupDistanceThreshold, false>(kernel);
+		case SimilarityType::Blur: maker.run<BlurDistance, GroupDistanceThreshold, false>(kernel);
 			break;
-		case SimilarityType::EqualityRotInv:makeMaps.operator() <RotInvariantKernelDistance, GroupDistanceThreshold, false > (kernel);
+		case SimilarityType::EqualityRotInv:maker.run<RotInvariantKernelDistance, GroupDistanceThreshold, false > (kernel);
 			break;
-		case SimilarityType::MinEquality: makeMaps.operator()<KernelDistance, GroupMinDistance, false>(kernel);
+		case SimilarityType::MinEquality: maker.run<KernelDistance, GroupMinDistance, false>(kernel);
 			break;
-		case SimilarityType::MinBlur: makeMaps.operator()<BlurDistance, GroupMinDistance, false>(kernel);
+		case SimilarityType::MinBlur: maker.run<BlurDistance, GroupMinDistance, false>(kernel);
 			break;
-		case SimilarityType::MinEqualityRotInv:makeMaps.operator() < RotInvariantKernelDistance, GroupMinDistance, false > (kernel);
+		case SimilarityType::MinEqualityRotInv:maker.run< RotInvariantKernelDistance, GroupMinDistance, false > (kernel);
 			break;
 		};
 
