@@ -33,6 +33,12 @@ const ZoneMap::PixelList& ZoneMap::operator()(sf::Color _color) const
 	return it != m_srcZones.end() ? it->second : m_defaultZone;
 }
 
+const ZoneMap::PixelList& ZoneMap::operator()(sf::Uint32 _color) const
+{
+	auto it = m_srcZones.find(_color);
+	return it != m_srcZones.end() ? it->second : m_defaultZone;
+}
+
 // ************************************************************* //
 sf::Image applyMap(const TransferMap& _map, const sf::Image& _src)
 {

@@ -14,6 +14,7 @@ public:
 	using PixelList = std::vector<size_t>;
 	const PixelList& operator()(unsigned x, unsigned y) const;
 	const PixelList& operator()(sf::Color _col) const;
+	const PixelList& operator()(sf::Uint32 _col) const;
 
 	auto begin() const { return m_srcZones.begin(); }
 	auto end() const { return m_srcZones.end(); }

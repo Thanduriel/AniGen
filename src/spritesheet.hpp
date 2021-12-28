@@ -30,3 +30,6 @@ sf::Image cropImage(const sf::Image& _img, const sf::IntRect& _rect);
 
 // set color of all pixels with alpha 0 to black
 void setZeroAlpha(sf::Image& _img);
+
+sf::Color getPixelFlat(const sf::Image& _img, size_t _flat);
+sf::Vector2u getIndex(const sf::Image& _img, size_t _flat);

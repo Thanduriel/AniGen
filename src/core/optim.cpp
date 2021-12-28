@@ -1,4 +1,5 @@
 #include "optim.hpp"
+#include "../math/vectorext.hpp"
 
 namespace nn {
 
@@ -67,12 +68,37 @@ namespace nn {
 		}
 
 		// *************************************************************** //
-		InterpolatedImage::InterpolatedImage(const sf::Image& _src, const ColorEmbedding& _embedding)
-			: m_src(_src),
-			m_embedding(_embedding)
-		{}
+		using namespace torch;
+		using namespace torch::indexing;
 
-		torch::Tensor InterpolatedImage::getPixel(float x, float y) const
+		InterpolatedImage::InterpolatedImage(const sf::Image& _src,
+			const ColorEmbedding& _embedding,
+			const ZoneMap::PixelList& _pixels,
+			unsigned _radius)
+			: m_embeddedColors(_src.getSize(), torch::zeros({int64_t(_embedding.dimension())})),
+			m_embeddingDim(_embedding.dimension())
+		{
+		//	sf::Vector2u min = _src.getSize();
+		//	sf::Vector2u max = sf::Vector2u(0u, 0u);
+			for (size_t px : _pixels)
+			{
+				Tensor color = _embedding.get(getPixelFlat(_src, px));
+				
+				const sf::Vector2u pos = getIndex(_src, px);
+				const unsigned iMax = std::min(_src.getSize().x, pos.x + _radius);
+				const unsigned jMax = std::min(_src.getSize().y, pos.y + _radius);
+				for(unsigned j = pos.y > _radius ? pos.y - _radius : 0; j <jMax; ++j)
+					for (unsigned i = pos.x > _radius ? pos.x - _radius : 0; i < iMax; ++i)
+					{
+						const sf::Vector2f dif(static_cast<float>(pos.x) - static_cast<float>(i),
+							static_cast<float>(pos.y) - static_cast<float>(j));
+						const float d = std::sqrt(math::dot(dif, dif))+1.f;
+						m_embeddedColors(i,j) += color * 1.f / d;
+					}
+			}
+		}
+
+	/*	torch::Tensor InterpolatedImage::getPixel(float x, float y) const
 		{
 			const unsigned lowX = static_cast<unsigned>(std::floor(x));
 			const unsigned highX = static_cast<unsigned>(std::ceil(x));
@@ -87,6 +113,43 @@ namespace nn {
 				+ tX * m_embedding.get(m_src.getPixel(highX, lowY)))
 				+ tY * ((1.f - tX) * m_embedding.get(m_src.getPixel(lowX, highY))
 					+ tX * m_embedding.get(m_src.getPixel(highX, highY)));
+		}*/
+
+		Tensor InterpolatedImage::getPixels(const Tensor& _positions) const
+		{
+			Tensor low = _positions.floor();
+			Tensor high = _positions.ceil();
+			Tensor t = _positions - low;
+			Tensor result = torch::zeros({ _positions.size(0), m_embeddingDim });
+
+			for (int64_t i = 0; i < _positions.size(0); ++i)
+			{
+				auto clampX = [&](float val) 
+				{ 
+					return static_cast<unsigned>(std::clamp(val, 0.f, static_cast<float>(m_embeddedColors.size.x - 1))); 
+				};
+				auto clampY = [&](float val)
+				{
+					return static_cast<unsigned>(std::clamp(val, 0.f, static_cast<float>(m_embeddedColors.size.y - 1)));
+				};
+
+				const unsigned lowX = clampX(low.index({i, 0}).item<float>());
+				const unsigned highX = clampX(high.index({ i, 0 }).item<float>());
+				const unsigned lowY = clampY(low.index({ i, 1 }).item<float>());
+				const unsigned highY = clampY(high.index({ i, 1 }).item<float>());
+				Tensor xy = m_embeddedColors(lowX, lowY);
+				Tensor Xy = m_embeddedColors(highX, lowY);
+				Tensor xY = m_embeddedColors(lowX, highY);
+				Tensor XY = m_embeddedColors(highX, highY);
+
+				const auto& tx = t.index({ i,0 });
+				const auto& ty = t.index({ i,1 });
+				result.index_put_({ i, Slice() }, 
+					(1.f - ty) *  ((1.f - tx) * xy + tx * Xy)
+					+ ty * ((1.f-tx) * xY + tx * XY));
+			}
+
+			return result;
 		}
 	}
 

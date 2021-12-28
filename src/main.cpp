@@ -109,13 +109,9 @@ struct MapMaker
 			auto constructGroupSim = [&]()
 			{
 				if constexpr (std::is_constructible_v<GroupSimilarity, std::vector<SimilarityT>, float>)
-				{
 					return GroupSimilarity(std::move(distances), discardThreshold);
-				}
 				else
-				{
 					return GroupSimilarity(std::move(distances));
-				}
 			};
 
 			auto [map, confidence] = constructMap(constructGroupSim(),

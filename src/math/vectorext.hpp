@@ -10,6 +10,12 @@ namespace math {
 
 	// dot product
 	template<typename T>
+	T dot(const sf::Vector2<T>& a, const sf::Vector2<T>& b)
+	{
+		return a.x * b.x + a.y * b.y;
+	}
+
+	template<typename T>
 	T dot(const sf::Vector3<T>& a, const sf::Vector3<T>& b)
 	{
 		return a.x * b.x + a.y * b.y + a.z * b.z;

@@ -143,3 +143,15 @@ void setZeroAlpha(sf::Image& _img)
 		}
 	}
 }
+
+sf::Color getPixelFlat(const sf::Image& _img, size_t _flat)
+{
+	const sf::Uint32* ptr = reinterpret_cast<const sf::Uint32*>(_img.getPixelsPtr());
+	const sf::Uint32 val = ptr[_flat];
+	return sf::Color(val);
+}
+
+sf::Vector2u getIndex(const sf::Image& _img, size_t _flat)
+{
+	return sf::Vector2u(_flat % _img.getSize().x, _flat / _img.getSize().x);
+}
