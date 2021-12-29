@@ -10,16 +10,19 @@ from geneticalgorithm import geneticalgorithm as ga
 similarity_measures = ["identity 1 x 1 1;",
 					   "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;",
 					   "equality 3 x 3 1 1 1; 1 3 1; 1 1 1;",
-					   "equality 3 x 3 1 1 1; 1 11 1; 1 1 1;",
-					   "equality 3 x 3 0 1 0; 1 1 1; 0 1 0;",
-					   "equality 3 x 3 1 0 1; 0 1 0; 1 0 1;",
-					   "blur 3 x 3 1 1 1; 1 1 1; 1 1 1;",
-					   "blur 3 x 3 1 1 1; 1 11 1; 1 1 1;",
-					   "blur 3 x 3 1 0 1; 0 1 0; 1 0 1;",
+			#		   "equality 3 x 3 1 1 1; 1 11 1; 1 1 1;",
+		#			   "equality 3 x 3 0 1 0; 1 1 1; 0 1 0;",
+		#			   "equality 3 x 3 1 0 1; 0 1 0; 1 0 1;",
+		#			   "blur 3 x 3 1 1 1; 1 1 1; 1 1 1;",
+		#			   "blur 3 x 3 1 1 1; 1 11 1; 1 1 1;",
+		#			   "blur 3 x 3 1 0 1; 0 1 0; 1 0 1;",
 					   "equality 3 x 3 0.845 0.529 0.732; 0.561 0.754 0.367; 0.758 0.141 0.243;",
-					   "equalityrotinv 3 x 3 1 1 1; 1 3 1; 1 1 1;",
-					   "minblur 3 x 3 1 1 1; 1 3 1; 1 1 1;",
-					   "minequalityrotinv 3 x 3 1 1 1; 1 3 1; 1 1 1;",]
+		#			   "equalityrotinv 3 x 3 1 1 1; 1 3 1; 1 1 1;",
+					   "equalityrotinv" 3 x 3 0.90553009 0.51973339 0.56880356 0.73786717 0.76955676 0.0523793
+ 0.60405608 0.30422786 0.39515804;
+		#			   "minblur 3 x 3 1 1 1; 1 3 1; 1 1 1;",
+		#			   "minequalityrotinv 3 x 3 1 1 1; 1 3 1; 1 1 1;",
+		]
 
 # input name, input num frames, reference frame, target name, num target frames
 maps = [("Combat_Hit", 1, 0, "Block_1H_Rtrn", 1),
@@ -55,7 +58,7 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 	dirs = [directories[i] for i in ref_set]
 	map_pairs, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
 	arg_list = scan.make_arg_list(map_pairs)
-	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop {}".format(
+	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop {} --threshold 0.9".format(
 		zone_map_cmd,
 		arg_list, 
 		map_args[1],
@@ -100,11 +103,22 @@ def make_table(experiments):
 
 	return results_table
 
+Experiment = namedtuple('Experiment', 'name map reference_set test_set similarity_measure zone_map')
+
+exp_similarity_optim = [
+		Experiment("unnamed", 0, [0,1,6], [3], 0, 0),
+		Experiment("unnamed", 0, [5,3,6], [0], 0, 0),
+		Experiment("unnamed", 0, [9,10], [11], 0, 0),
+		Experiment("unnamed", 2, [0,1,6], [3], 0, 0),
+		Experiment("unnamed", 2, [5,3,6], [0], 0, 0),
+		Experiment("unnamed", 2, [9,10], [11], 0, 0)
+	]
+
 kernel_size = 3
 def goal_fn(X):
 	err0 = 0
 	err1 = 0
-	similarity_measure = "equality {} x {}".format(kernel_size, kernel_size)
+	similarity_measure = "equalityrotinv {} x {}".format(kernel_size, kernel_size)
 	for i in range(0, len(X)):
 		similarity_measure += " {}".format(X[i])
 		if (i+1) % kernel_size == 0:
@@ -146,7 +160,6 @@ def run_optimization():
 	print(model.output_dict)
 
 def main():
-	Experiment = namedtuple('Experiment', 'name map reference_set test_set similarity_measure zone_map')
 	experimentsBasic = [
 		Experiment("template 1x1", 0, [2], [4], 0, None)
 	]
@@ -168,20 +181,12 @@ def main():
 	for i in range(0,len(similarity_measures)):
 		exp_similarity.append(Experiment(similarity_measures[i], 2, [0,1,2,6,5], [3], i, None))
 
-	exp_similarity_optim = [
-		Experiment("unnamed", 0, [0,1,6], [3], similarity, 0),
-		Experiment("unnamed", 0, [5,3,6], [0], similarity, 0),
-		Experiment("unnamed", 0, [9,10], [11], similarity, 0),
-		Experiment("unnamed", 2, [0,1,6], [3], similarity, 0),
-		Experiment("unnamed", 2, [5,3,6], [0], similarity, 0),
-		Experiment("unnamed", 2, [9,10], [11], similarity, 0)
-	]
 	#print(make_table(experimentsBasic))
 	#print(make_table(exp_num_inputs))
-	print(make_table(exp_similarity))
+	#print(make_table(exp_similarity))
 
 	#print(make_table(exp_similarity_optim))
-	#run_optimization()
+	run_optimization()
 	#print(make_table([Experiment("holes", 2, [0,1,2,5,6], [3], 2, 0)]))
 
 	#make_table([exp_similarity[2]])

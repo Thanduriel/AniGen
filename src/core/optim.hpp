@@ -11,6 +11,7 @@ namespace std{
 	template< class F, class... ArgTypes>
 	using result_of_t = typename std::invoke_result_t<F, ArgTypes...>;
 }*/
+#pragma warning (disable : 4624 )
 #include <torch/torch.h>
 
 #include <functional>
@@ -28,7 +29,7 @@ namespace nn {
 			TORCH_ARG(int64_t, input_size);
 			TORCH_ARG(int64_t, output_size);
 			TORCH_ARG(int64_t, hidden_size);
-			TORCH_ARG(int64_t, hidden_layers) = 0;
+			TORCH_ARG(int64_t, hidden_layers) = 1;
 			TORCH_ARG(bool, bias) = true;
 			TORCH_ARG(ActivationFn, activation) = torch::tanh;
 			TORCH_ARG(double, total_time) = 0.0;
@@ -78,74 +79,7 @@ namespace nn {
 		};
 	}
 
-	auto constructMapOptim(const std::vector<sf::Image>& _srcImages,
+	void constructMapOptim(const std::vector<sf::Image>& _srcImages,
 		const std::vector<sf::Image>& _dstImages,
-		unsigned _numThreads = 1)
-	{
-		assert(_srcImages.size() == _dstImages.size());
-
-		ZoneMap srcZoneMap(_srcImages[0], _dstImages[0]);
-		ZoneMap dstZoneMap(_dstImages[0], _srcImages[0]);
-
-		using namespace details;
-
-		for (const auto& [col, pixelsSrc] : srcZoneMap)
-		{
-			const auto& pixelsDst = dstZoneMap(col);
-
-			// data setup
-			const size_t numImgs = _srcImages.size() - 1;
-			std::vector<ColorEmbedding> embeddings;
-			embeddings.reserve(numImgs);
-			std::vector<InterpolatedImage> dstInterpolated;
-			dstInterpolated.reserve(numImgs);
-
-			std::vector<torch::Tensor> srcColors;
-			srcColors.reserve(numImgs);
-			std::vector<torch::Tensor> srcPositions;
-			srcPositions.reserve(numImgs);
-
-			for (size_t i = 1; i < _srcImages.size(); ++i)
-			{
-				torch::NoGradGuard noGrad;
-				embeddings.emplace_back(_srcImages[i], pixelsSrc);
-				dstInterpolated.emplace_back(_dstImages[i], embeddings.back());
-
-				const int64_t numPixels = static_cast<int64_t>(pixelsSrc.size());
-				const int64_t dims = static_cast<int64_t>(embeddings.back().dimension());
-				srcColors.push_back(torch::zeros({ numPixels, dims }));
-				srcPositions.push_back(torch::zeros({ numPixels, 2 }, requires_grad(true)));
-
-				for (size_t j = 0; j < pixelsSrc.size(); ++j)
-				{
-					using namespace torch::indexing;
-					const int64_t col = static_cast<int64_t>(j);
-					const sf::Vector2u pos = getIndex(_srcImages[i], pixelsSrc[j]);
-					srcColors.back().index_put_({ col, Slice() }, embeddings.back().get(_srcImages[i].getPixel(pos.x,pos.y)));
-					srcPositions.back().index_put_({ col, Slice() }, torch::tensor({ float(pos.x), float(pos.y) }));
-				}
-			}
-
-			// network setup
-			MultiLayerPerceptron net(MLPOptions(2));
-
-			// training
-			torch::optim::Adam optimizer(net->parameters(),
-				torch::optim::AdamOptions(1e-2));
-
-			for (size_t epoch = 0; epoch < 10000; ++epoch)
-			{
-				torch::Tensor loss = torch::zeros({ 1 });
-				for (size_t j = 0; j < numImgs; ++j)
-				{
-					torch::Tensor dstPositions = net->forward(srcPositions[j]);
-					loss += torch::mse_loss(dstInterpolated[j].getPixels(dstPositions), srcColors[j]);
-				}
-				loss.backward();
-				optimizer.step();
-
-				std::cout << "Epoch: " << epoch << " loss: " << loss.item<float>() << "\n";
-			}
-		}
-	}
+		unsigned _numThreads = 1);
 }

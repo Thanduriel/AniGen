@@ -13,6 +13,9 @@
 #include "core/pixelsimilarity.hpp"
 #include "colors.hpp"
 #include "eval/eval.hpp"
+#ifdef WITH_TORCH
+#include "core/optim.hpp"
+#endif
 
 using namespace math;
 
@@ -25,6 +28,9 @@ enum struct SimilarityType
 	MinEquality,
 	MinBlur,
 	MinEqualityRotInv,
+#ifdef WITH_TORCH
+	MSEOptim,
+#endif
 	COUNT
 };
 
@@ -36,7 +42,10 @@ const std::array<std::string, static_cast<size_t>(SimilarityType::COUNT)> SIMILA
 	{"equalityrotinv"},
 	{"minequality"},
 	{"minblur"},
-	{"minequalityrotinv"}
+	{"minequalityrotinv"},
+#ifdef WITH_TORCH
+	{"mseoptim"}
+#endif
 } };
 
 constexpr const char* defaultSimilarity = "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;";
@@ -312,6 +321,18 @@ int main(int argc, char* argv[])
 			break;
 		case SimilarityType::MinEqualityRotInv:maker.run< RotInvariantKernelDistance, GroupMinDistance, false > (kernel);
 			break;
+#ifdef WITH_TORCH
+		case SimilarityType::MSEOptim:
+			for (size_t i = 0; i < numFrames; ++i)
+			{
+				std::vector<sf::Image> dstImages;
+				dstImages.reserve(targetSheets.size());
+				for (auto& sheet : targetSheets)
+					dstImages.push_back(sheet.frames[i]);
+				nn::constructMapOptim(referenceSprites, dstImages);
+			}
+			break;
+#endif
 		};
 
 		if (debugFlag)
