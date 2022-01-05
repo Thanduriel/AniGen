@@ -146,9 +146,8 @@ void setZeroAlpha(sf::Image& _img)
 
 sf::Color getPixelFlat(const sf::Image& _img, size_t _flat)
 {
-	const sf::Uint32* ptr = reinterpret_cast<const sf::Uint32*>(_img.getPixelsPtr());
-	const sf::Uint32 val = ptr[_flat];
-	return sf::Color(val);
+	const sf::Uint8* ptr = _img.getPixelsPtr() + 4 * _flat;
+	return sf::Color(ptr[0], ptr[1], ptr[2], ptr[3]);
 }
 
 sf::Vector2u getIndex(const sf::Image& _img, size_t _flat)

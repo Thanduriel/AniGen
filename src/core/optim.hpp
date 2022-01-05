@@ -33,6 +33,7 @@ namespace nn {
 			TORCH_ARG(bool, bias) = true;
 			TORCH_ARG(ActivationFn, activation) = torch::tanh;
 			TORCH_ARG(double, total_time) = 0.0;
+			TORCH_ARG(bool, residual) = true;
 		};
 
 		// Fully connected multi-layer perceptron with residual connections.
@@ -69,7 +70,7 @@ namespace nn {
 			InterpolatedImage(const sf::Image& _src, 
 				const ColorEmbedding& _embedding, 
 				const ZoneMap::PixelList& _pixels,
-				unsigned _radius = 2);
+				unsigned _radius = 3);
 
 		//	torch::Tensor getPixel(float x, float y) const;
 			torch::Tensor getPixels(const torch::Tensor& _positions) const;

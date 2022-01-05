@@ -32,25 +32,24 @@ namespace nn {
 		torch::Tensor MultiLayerPerceptronImpl::forward(torch::Tensor x)
 		{
 			auto& activation = options.activation();
-			for (size_t i = 0; i+1 < layers.size(); ++i)
-				x = x + timeStep * activation(layers[i](x));
+			for (size_t i = 0; i + 1 < layers.size(); ++i)
+			{
+				if (options.residual())
+					x = x + timeStep * activation(layers[i](x));
+				else
+					x = timeStep * activation(layers[i](x));
+			}
 
-			return x + layers.back()(x);
+			return layers.back()(x);
 		}
 
 		// *************************************************************** //
 		ColorEmbedding::ColorEmbedding(const sf::Image& _src, const ZoneMap::PixelList& _pixels)
 		{
-			auto read = [&](size_t ind) 
-			{
-				const sf::Uint32* ptr = reinterpret_cast<const sf::Uint32*>(_src.getPixelsPtr());
-				return ptr[ind];
-			};
-
 			torch::Tensor tensor;
 			for (size_t ind : _pixels)
 			{
-				m_embedding.insert(std::pair<size_t, torch::Tensor>(read(ind), tensor));
+				m_embedding.insert(std::pair<sf::Uint32, torch::Tensor>(getPixelFlat(_src,ind).toInteger(), tensor));
 			}
 
 			const int64_t s = static_cast<int64_t>(m_embedding.size());
@@ -58,12 +57,13 @@ namespace nn {
 			for (auto& [key, value] : m_embedding)
 			{
 				value = torch::zeros({ s });
-				value.index_put_({ cur }, 1.f);
+				value.index_put_({ cur++ }, 1.f);
 			}
 		}
 
 		torch::Tensor ColorEmbedding::get(sf::Color _color) const
 		{
+			uint32_t what = _color.toInteger();
 			auto it = m_embedding.find(_color.toInteger());
 			return it != m_embedding.end() ? it->second : torch::zeros(int64_t(m_embedding.size()));
 		}
@@ -76,26 +76,36 @@ namespace nn {
 			const ColorEmbedding& _embedding,
 			const ZoneMap::PixelList& _pixels,
 			unsigned _radius)
-			: m_embeddedColors(_src.getSize(), torch::zeros({int64_t(_embedding.dimension())})),
+			: m_embeddedColors(_src.getSize()),
 			m_embeddingDim(_embedding.dimension())
 		{
+			// regular constructor makes only shallow copies
+			for (auto& tensor : m_embeddedColors.elements)
+				tensor = torch::zeros({ int64_t(_embedding.dimension()) });
 		//	sf::Vector2u min = _src.getSize();
 		//	sf::Vector2u max = sf::Vector2u(0u, 0u);
 			for (size_t px : _pixels)
 			{
 				Tensor color = _embedding.get(getPixelFlat(_src, px));
-				
+
 				const sf::Vector2u pos = getIndex(_src, px);
 				const unsigned iMax = std::min(_src.getSize().x, pos.x + _radius);
 				const unsigned jMax = std::min(_src.getSize().y, pos.y + _radius);
-				for(unsigned j = pos.y > _radius ? pos.y - _radius : 0; j <jMax; ++j)
+				for(unsigned j = pos.y > _radius ? pos.y - _radius : 0; j < jMax; ++j)
 					for (unsigned i = pos.x > _radius ? pos.x - _radius : 0; i < iMax; ++i)
 					{
 						const sf::Vector2f dif(static_cast<float>(pos.x) - static_cast<float>(i),
 							static_cast<float>(pos.y) - static_cast<float>(j));
-						const float d = std::sqrt(math::dot(dif, dif))+1.f;
+						const float d = std::sqrt(math::dot(dif, dif))+0.2f;
 						m_embeddedColors(i,j) += color * 1.f / d;
 					}
+			}
+
+			for (auto& tensor : m_embeddedColors.elements)
+			{
+				const float l = tensor.norm().item<float>();
+				if(l != 0.f)
+					tensor *= 1.f / l;
 			}
 		}
 
@@ -174,6 +184,7 @@ namespace nn {
 			std::vector<ColorEmbedding> embeddings;
 			embeddings.reserve(numImgs);
 			std::vector<InterpolatedImage> dstInterpolated;
+			std::vector<InterpolatedImage> dstValidation;
 			dstInterpolated.reserve(numImgs);
 
 			std::vector<torch::Tensor> srcColors;
@@ -181,14 +192,26 @@ namespace nn {
 			std::vector<torch::Tensor> srcPositions;
 			srcPositions.reserve(numImgs);
 
+			sf::Vector2u originSum(0u, 0u);
+			sf::Vector2u targetSum(0u, 0u);
+			for (size_t px : pixelsSrc)
+				originSum += getIndex(_srcImages[0], px);
+			for (size_t px : pixelsDst)
+				targetSum += getIndex(_dstImages[0], px);
+
+			const sf::Vector2f origin = sf::Vector2f(originSum) * (1.f / pixelsSrc.size());
+			const sf::Vector2f target = sf::Vector2f(targetSum) * (1.f / pixelsDst.size());
+
 			for (size_t i = 1; i < _srcImages.size(); ++i)
 			{
 				torch::NoGradGuard noGrad;
 				embeddings.emplace_back(_srcImages[i], pixelsSrc);
-				dstInterpolated.emplace_back(_dstImages[i], embeddings.back(), pixelsDst);
+				const ColorEmbedding& embedding = embeddings.back();
+				dstInterpolated.emplace_back(_dstImages[i], embedding, pixelsDst);
+				dstValidation.emplace_back(_dstImages[i], embedding, pixelsDst, 1);
 
 				const int64_t numPixels = static_cast<int64_t>(pixelsSrc.size());
-				const int64_t dims = static_cast<int64_t>(embeddings.back().dimension());
+				const int64_t dims = static_cast<int64_t>(embedding.dimension());
 				srcColors.push_back(torch::zeros({ numPixels, dims }));
 				srcPositions.push_back(torch::zeros({ numPixels, 2 }, requires_grad(true)));
 
@@ -197,19 +220,32 @@ namespace nn {
 					using namespace torch::indexing;
 					const int64_t col = static_cast<int64_t>(j);
 					const sf::Vector2u pos = getIndex(_srcImages[i], pixelsSrc[j]);
-					std::cout << srcColors.back().sizes() << "\n";
-					std::cout << embeddings.back().get(_srcImages[i].getPixel(pos.x, pos.y));
-					srcColors.back().index_put_({ col, Slice() }, embeddings.back().get(_srcImages[i].getPixel(pos.x, pos.y)));
-					srcPositions.back().index_put_({ col, Slice() }, torch::tensor({ float(pos.x), float(pos.y) }));
+					srcColors.back().index_put_({ col, Slice() }, embedding.get(_srcImages[i].getPixel(pos.x, pos.y)));
+					srcPositions.back().index_put_({ col, Slice() }, torch::tensor({ float(pos.x) - origin.x, float(pos.y) -origin.y }));
 				}
 			}
 
 			// network setup
-			MultiLayerPerceptron net(MLPOptions(2));
+			// starting guess for the translation is the center of each zone
+			const float translationX = target.x; // float(target.x) / pixelsDst.size() - float(origin.x) / pixelsSrc.size();
+			const float translationY = target.y; // float(target.y) / pixelsDst.size() - float(origin.y) / pixelsSrc.size();
 
+			MultiLayerPerceptron net(MLPOptions(2)
+				.total_time(1.0)
+				.hidden_layers(1)
+				.residual(true));
+			{
+				// set initial map from center to center
+				torch::NoGradGuard noGrad;
+				net->layers.back()->bias.index_put_({ Slice() }, torch::tensor({ translationX, translationY }));
+				const float theta = 3.1415f / 4 * 0.f;
+				const float cos = std::cos(theta);
+				const float sin = std::sin(theta);
+				net->layers.back()->weight.index_put_({ Slice() }, torch::tensor({ {cos, -sin},{sin, cos} }));
+			}
 			// training
 			torch::optim::Adam optimizer(net->parameters(),
-				torch::optim::AdamOptions(1e-2));
+				torch::optim::AdamOptions(1e-3));
 
 			for (size_t epoch = 0; epoch < 10000; ++epoch)
 			{
@@ -222,7 +258,16 @@ namespace nn {
 				loss.backward();
 				optimizer.step();
 
-				std::cout << "Epoch: " << epoch << " loss: " << loss.item<float>() << "\n";
+				torch::NoGradGuard noGrad;
+				torch::Tensor lossValid = torch::zeros({ 1 });
+				for (size_t j = 0; j < numImgs; ++j)
+				{
+					torch::Tensor dstPositions = net->forward(srcPositions[j]);
+					lossValid += torch::mse_loss(dstValidation[j].getPixels(dstPositions), srcColors[j]);
+				}
+
+				std::cout << "Epoch: " << epoch << " loss: " << loss.item<float>() 
+					<< " valid: " << lossValid.item<float>() << "\n";
 			}
 		}
 	}
