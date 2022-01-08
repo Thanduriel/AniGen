@@ -45,6 +45,7 @@ namespace nn {
 			void reset() override;
 
 			torch::Tensor forward(torch::Tensor _input);
+			torch::Tensor inverse(torch::Tensor _output);
 
 			MLPOptions options;
 			std::vector<torch::nn::Linear> layers;
@@ -80,7 +81,7 @@ namespace nn {
 		};
 	}
 
-	void constructMapOptim(const std::vector<sf::Image>& _srcImages,
+	TransferMap constructMapOptim(const std::vector<sf::Image>& _srcImages,
 		const std::vector<sf::Image>& _dstImages,
 		unsigned _numThreads = 1);
 }

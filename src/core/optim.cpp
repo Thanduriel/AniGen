@@ -43,6 +43,21 @@ namespace nn {
 			return layers.back()(x);
 		}
 
+		torch::Tensor MultiLayerPerceptronImpl::inverse(torch::Tensor x)
+		{
+			auto& last = layers.back();
+			x = torch::matmul(x - last->bias, torch::linalg::inv(last->weight).transpose(0, 1));
+
+		/*	for (size_t i = layers.size() - 1; i > 0; --i)
+			{
+				auto& layer = layers[i];
+				x = torch::linalg::inv(layer->weight) * (x - layer->bias);
+			}
+			torch::atanh()*/
+
+			return x;
+		}
+
 		// *************************************************************** //
 		ColorEmbedding::ColorEmbedding(const sf::Image& _src, const ZoneMap::PixelList& _pixels)
 		{
@@ -164,7 +179,22 @@ namespace nn {
 		}
 	}
 
-	void constructMapOptim(const std::vector<sf::Image>& _srcImages,
+	template<typename Module>
+	Module clone(const Module& _module)
+	{
+		using ModuleImpl = typename Module::Impl;
+		return Module(std::dynamic_pointer_cast<ModuleImpl>(_module->clone()));
+	}
+
+	torch::Tensor indexSlice(const torch::Tensor& _tensor, const std::vector<size_t>& _inds)
+	{
+		torch::Tensor tensor = torch::zeros({ int64_t(_inds.size()), _tensor.sizes()[1] });
+		for (size_t i = 0; i < _inds.size(); ++i)
+			tensor[i] = _tensor[_inds[i]];
+		return tensor;
+	}
+
+	TransferMap constructMapOptim(const std::vector<sf::Image>& _srcImages,
 		const std::vector<sf::Image>& _dstImages,
 		unsigned _numThreads)
 	{
@@ -173,10 +203,17 @@ namespace nn {
 		ZoneMap srcZoneMap(_srcImages[0], _dstImages[0]);
 		ZoneMap dstZoneMap(_dstImages[0], _srcImages[0]);
 
+		TransferMap map(_srcImages.front().getSize());
+		for (unsigned y = 0; y < map.size.y; ++y)
+			for (unsigned x = 0; x < map.size.x; ++x)
+				map(x, y) = sf::Vector2u(x, y);
+
 		using namespace details;
 
 		for (const auto& [col, pixelsSrc] : srcZoneMap)
 		{
+			if (col == 0) continue;
+
 			const auto& pixelsDst = dstZoneMap(col);
 
 			// data setup
@@ -191,6 +228,14 @@ namespace nn {
 			srcColors.reserve(numImgs);
 			std::vector<torch::Tensor> srcPositions;
 			srcPositions.reserve(numImgs);
+			torch::Tensor dstPositions = torch::zeros( {int64_t(pixelsDst.size()), 2} );
+			for (size_t j = 0; j < pixelsDst.size(); ++j)
+			{
+				const sf::Vector2u pos = getIndex(_dstImages[0], pixelsDst[j]);
+				dstPositions.index_put_({ int64_t(j), Slice() }, torch::tensor({ float(pos.x), float(pos.y) }));
+			}
+
+			std::vector<torch::data::samplers::RandomSampler> samplers;
 
 			sf::Vector2u originSum(0u, 0u);
 			sf::Vector2u targetSum(0u, 0u);
@@ -223,12 +268,14 @@ namespace nn {
 					srcColors.back().index_put_({ col, Slice() }, embedding.get(_srcImages[i].getPixel(pos.x, pos.y)));
 					srcPositions.back().index_put_({ col, Slice() }, torch::tensor({ float(pos.x) - origin.x, float(pos.y) -origin.y }));
 				}
+
+				samplers.emplace_back(pixelsSrc.size());
 			}
 
 			// network setup
 			// starting guess for the translation is the center of each zone
-			const float translationX = target.x; // float(target.x) / pixelsDst.size() - float(origin.x) / pixelsSrc.size();
-			const float translationY = target.y; // float(target.y) / pixelsDst.size() - float(origin.y) / pixelsSrc.size();
+			const float translationX = target.x;
+			const float translationY = target.y;
 
 			MultiLayerPerceptron net(MLPOptions(2)
 				.total_time(1.0)
@@ -243,33 +290,92 @@ namespace nn {
 				const float sin = std::sin(theta);
 				net->layers.back()->weight.index_put_({ Slice() }, torch::tensor({ {cos, -sin},{sin, cos} }));
 			}
+			MultiLayerPerceptron bestNet = clone(net);
+			float bestLoss = std::numeric_limits<float>::max();
+
 			// training
 			torch::optim::Adam optimizer(net->parameters(),
-				torch::optim::AdamOptions(1e-3));
+				torch::optim::AdamOptions(3e-3));
+		//	torch::optim::SGD optimizer(net->parameters(),
+		//		torch::optim::SGDOptions(5e-3).momentum(0.5));
 
-			for (size_t epoch = 0; epoch < 10000; ++epoch)
+			size_t batchSize = std::max(pixelsSrc.size() / 4, size_t(12));
+
+		/*	torch::optim::LBFGS optimizer(net->parameters(),
+				torch::optim::LBFGSOptions(1e-2)
+					.max_iter(64)
+					.history_size(256));*/
+
+			const size_t maxEpochs = 200;
+			for (size_t epoch = 0; epoch < maxEpochs; ++epoch)
 			{
-				torch::Tensor loss = torch::zeros({ 1 });
-				for (size_t j = 0; j < numImgs; ++j)
+				net->train();
+				net->zero_grad();
+				for (auto& sampler : samplers)
+					sampler.reset();
+				float lossF = 0.f;
+				while (auto batchInds = samplers[0].next(batchSize))
 				{
-					torch::Tensor dstPositions = net->forward(srcPositions[j]);
-					loss += torch::mse_loss(dstInterpolated[j].getPixels(dstPositions), srcColors[j]);
+					std::vector<std::vector<size_t>> batches;
+					batches.emplace_back(std::move(*batchInds));
+					for (size_t j = 1; j < numImgs; ++j)
+						batches.emplace_back(std::move(*samplers[j].next(batchSize)));
+
+					auto closure = [&]()
+					{
+						torch::Tensor loss = torch::zeros({ 1 });
+						lossF = 0.f;
+						torch::Tensor output = net->forward(srcPositions[0]);
+						for (size_t j = 0; j < numImgs; ++j)
+						{
+							torch::Tensor targetPos = indexSlice(output, batches[j]);
+							loss += torch::mse_loss(dstInterpolated[j].getPixels(targetPos),
+								indexSlice(srcColors[j], batches[j]));
+							
+						}
+						loss.backward();
+						lossF += loss.item<float>();
+						return loss;
+					};
+					optimizer.step(closure);
 				}
-				loss.backward();
-				optimizer.step();
 
 				torch::NoGradGuard noGrad;
+				net->eval();
 				torch::Tensor lossValid = torch::zeros({ 1 });
+				torch::Tensor dstPositions = net->forward(srcPositions[0]);
 				for (size_t j = 0; j < numImgs; ++j)
 				{
-					torch::Tensor dstPositions = net->forward(srcPositions[j]);
 					lossValid += torch::mse_loss(dstValidation[j].getPixels(dstPositions), srcColors[j]);
 				}
+				const float lossValidF = lossValid.item<float>();
+				if (lossValidF < bestLoss)
+				{
+					bestNet = clone(net);
+					bestLoss = lossValidF;
+				}
 
-				std::cout << "Epoch: " << epoch << " loss: " << loss.item<float>() 
-					<< " valid: " << lossValid.item<float>() << "\n";
+				std::cout << "Epoch: " << epoch << " loss: " << lossF
+					<< " valid: " << lossValidF << "\n";
+
+			/*	if (epoch > maxEpochs * 2 / 3)
+				{
+					batchSize = pixelsSrc.size();
+				}*/
+			}
+
+			torch::NoGradGuard gradGuard;
+			// discretize the function
+			torch::Tensor source = bestNet->inverse(dstPositions);
+			for (int64_t i = 0; i < source.sizes()[0]; ++i)
+			{
+				sf::Vector2f p(source.index({ i, 0 }).item<float>(), 
+					source.index({ i, 1 }).item<float>());
+				map(getIndex(_dstImages[0], pixelsDst[i])) = sf::Vector2u(p.x + origin.x, p.y + origin.y);
 			}
 		}
+
+		return map;
 	}
 
 } // namespace nn
