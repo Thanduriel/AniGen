@@ -5,7 +5,6 @@
 #include <fstream>
 #include <filesystem>
 #include <array>
-#include <concepts>
 
 #include <args.hxx>
 #include "spritesheet.hpp"
@@ -144,14 +143,21 @@ int main(int argc, char* argv[])
 	
 	args::Group commands(parser, "commands");
 	args::Command applyMode(commands, "apply", "apply an existing map to a sprite");
-	args::Command createMode(commands, "create", "create a map from reference sprites");
 	args::Command diffMode(commands, "evaluate", "compute difference between two sprites");
 	
+	args::Group createArgs("creation exclusive arguments");
+	args::Command createMode(commands, "create", "create a map from reference sprites",
+		[&](args::Subparser& subParser)
+		{
+			subParser.Add(createArgs);
+			subParser.Parse();
+		});
+
 	args::Group arguments("arguments");
 	args::HelpFlag help(arguments, "help", "display this help menu", { 'h', "help" });
 	args::ValueFlag<int> framesInput(arguments, "num_input_frames", 
 		"number of frames in the input sprites", { 'n', "input_frames" }, 1);
-	args::ValueFlag<int> framesTarget(arguments, "num_target_frames", 
+	args::ValueFlag<int> framesTarget(createArgs, "num_target_frames", 
 		"number of frames in the target sprites", { 'm', "target_frames" }, 1);
 	args::ValueFlag<int> refFrame(arguments, "reference_frame", 
 		"which frame to use as reference in the input sprites; only necessary if input_frames > 0", 
@@ -168,20 +174,20 @@ int main(int argc, char* argv[])
 		"name for the map to (create); or the stem of the name for the sprite to create (apply), the name of the map and the ending is appended to this", 
 		{ 'o', "output" });
 
-	args::Flag zoneMapFlag(arguments, "zone_map",
+	args::Flag zoneMapFlag(createArgs, "zone_map",
 		"for (create) use the first (input,target) pair as zone map instead as regular input", 
 		{ 'z', "zones" });
 
-	args::ValueFlag<std::string> similarityMeasure(arguments, "similarity_measure",
+	args::ValueFlag<std::string> similarityMeasure(createArgs, "similarity_measure",
 		"a string describing the similarity measure to use for map creation; general form: \"type a x b m11 m21 ...; m21 m22 ...; ...\"",
 		{ 's', "similarity" }, defaultSimilarity);
 	args::Flag debugFlag(arguments, "debug", 
 		"during (create) additional information is output; for (apply) the reference image is combined with a high contrast image to better visualize the map", 
 		{ "debug" });
-	args::ValueFlag<int> cropMinBorder(arguments, "crop_border",
+	args::ValueFlag<int> cropMinBorder(createArgs, "crop_border",
 		"accelerate (create) by cropping the empty frame around each sprite to at most crop_border pixels",
 		{ "crop" }, 0);
-	args::ValueFlag<float> discardTreshold(arguments, "discard_threshold",
+	args::ValueFlag<float> discardTreshold(createArgs, "discard_threshold",
 		"discards distance values during (create) with multiple sprites if are larger mean + threshold; distance values are in the range [0,1]",
 		{ "threshold" }, 1.0);
 
@@ -199,13 +205,11 @@ int main(int argc, char* argv[])
 	catch (const args::ParseError& e)
 	{
 		std::cerr << e.what() << std::endl;
-		std::cerr << parser;
 		return 1;
 	}
 	catch (const args::ValidationError& e)
 	{
 		std::cerr << e.what() << std::endl;
-		std::cerr << parser;
 		return 1;
 	}
 	const unsigned numThreads = args::get(threads);
@@ -325,11 +329,15 @@ int main(int argc, char* argv[])
 		case SimilarityType::MSEOptim:
 			for (size_t i = 0; i < numFrames; ++i)
 			{
+				if (kernel.size.x != kernel.size.y)
+				{
+					std::cout << "[Warning] Ignoring they y-size because mseoptim always uses a square kernel.\n";
+				}
 				std::vector<sf::Image> dstImages;
 				dstImages.reserve(targetSheets.size());
 				for (auto& sheet : targetSheets)
 					dstImages.push_back(sheet.frames[i]);
-				auto map = nn::constructMapOptim(referenceSprites, dstImages);
+				auto map = nn::constructMapOptim(referenceSprites, dstImages, kernel.size.x);
 				file << map;
 			}
 			break;

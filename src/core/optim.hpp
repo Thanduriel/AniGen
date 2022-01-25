@@ -47,8 +47,11 @@ namespace nn {
 			torch::Tensor forward(torch::Tensor _input);
 			torch::Tensor inverse(torch::Tensor _output);
 
+			void computeInverse();
+
 			MLPOptions options;
 			std::vector<torch::nn::Linear> layers;
+			torch::Tensor inverseWeight;
 			double timeStep;
 		};
 
@@ -83,5 +86,6 @@ namespace nn {
 
 	TransferMap constructMapOptim(const std::vector<sf::Image>& _srcImages,
 		const std::vector<sf::Image>& _dstImages,
-		unsigned _numThreads = 1);
+		unsigned _numThreads = 1,
+		unsigned _radius = 3);
 }
