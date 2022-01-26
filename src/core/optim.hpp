@@ -52,6 +52,7 @@ namespace nn {
 			MLPOptions options;
 			std::vector<torch::nn::Linear> layers;
 			torch::Tensor inverseWeight;
+			torch::Tensor bias;
 			double timeStep;
 		};
 

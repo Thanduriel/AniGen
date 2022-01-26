@@ -337,7 +337,7 @@ int main(int argc, char* argv[])
 				dstImages.reserve(targetSheets.size());
 				for (auto& sheet : targetSheets)
 					dstImages.push_back(sheet.frames[i]);
-				auto map = nn::constructMapOptim(referenceSprites, dstImages, kernel.size.x);
+				auto map = nn::constructMapOptim(referenceSprites, dstImages, numThreads, kernel.size.x);
 				file << map;
 			}
 			break;

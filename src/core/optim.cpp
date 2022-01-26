@@ -27,11 +27,15 @@ namespace nn {
 				layers.emplace_back(torch::nn::Linear(hiddenOptions));
 				register_module("hidden" + std::to_string(i), layers.back());
 			}
+
+			bias = register_parameter("bias", torch::zeros(options.input_size()));
 		}
 
 		torch::Tensor MultiLayerPerceptronImpl::forward(torch::Tensor x)
 		{
 			auto& activation = options.activation();
+			x = x + bias;
+
 			for (size_t i = 0; i + 1 < layers.size(); ++i)
 			{
 				if (options.residual())
@@ -55,7 +59,7 @@ namespace nn {
 			}
 			torch::atanh()*/
 
-			return x;
+			return x - bias;
 		}
 
 		void MultiLayerPerceptronImpl::computeInverse()
@@ -306,7 +310,7 @@ namespace nn {
 						const int64_t col = static_cast<int64_t>(j);
 						const sf::Vector2u pos = getIndex(_srcImages[i], pixelsSrc[j]);
 						srcColors.back().index_put_({ col, Slice() }, embedding.get(_srcImages[i].getPixel(pos.x, pos.y)));
-						srcPositions.back().index_put_({ col, Slice() }, torch::tensor({ float(pos.x) - origin.x, float(pos.y) - origin.y }));
+						srcPositions.back().index_put_({ col, Slice() }, torch::tensor({ float(pos.x), float(pos.y) }));
 					}
 
 					const int64_t numPixelsDst = static_cast<int64_t>(pixelsDst.size());
@@ -346,7 +350,8 @@ namespace nn {
 				const float translationY = target.y;
 
 
-				auto makeNet = [](const sf::Vector2f& _translation, float _rotation)
+				auto makeNet = []( const sf::Vector2f& _centerTranslation,
+					const sf::Vector2f& _translation, float _rotation)
 				{
 					MultiLayerPerceptron net(MLPOptions(2)
 						.total_time(1.0)
@@ -354,6 +359,7 @@ namespace nn {
 						.residual(true));
 					// set initial map from center to center
 					torch::NoGradGuard noGrad;
+					net->bias.index_put_({ Slice() }, torch::tensor({ _centerTranslation.x, _centerTranslation.y }));
 					net->layers.back()->bias.index_put_({ Slice() }, torch::tensor({ _translation.x, _translation.y }));
 					const float cos = std::cos(_rotation);
 					const float sin = std::sin(_rotation);
@@ -361,13 +367,13 @@ namespace nn {
 
 					return net;
 				};
-				MultiLayerPerceptron net = makeNet(target, 0.f);
+				MultiLayerPerceptron net = makeNet(-origin, target, 0.f);
 				MultiLayerPerceptron bestNet = clone(net);
 				float bestRotLoss = evaluateValid(net);
 				constexpr int ROTATIONS = 8;
 				for (int i = 1; i < ROTATIONS; ++i)
 				{
-					net = makeNet(target, (2.f * 3.1415f / ROTATIONS) * i);
+					net = makeNet(-origin, target, (2.f * 3.1415f / ROTATIONS) * i);
 					const float rotLoss = evaluateValid(net);
 					if (rotLoss < bestRotLoss)
 					{
@@ -453,8 +459,8 @@ namespace nn {
 						bestLoss = lossValid;
 					}
 
-					std::cout << "Epoch: " << epoch << " loss: " << lossF
-						<< " valid: " << lossValid << "\n";
+				//	std::cout << "Epoch: " << epoch << " loss: " << lossF
+				//		<< " valid: " << lossValid << "\n";
 
 					/*	if (epoch > maxEpochs * 2 / 3)
 						{
@@ -470,7 +476,7 @@ namespace nn {
 				{
 					sf::Vector2f p(source.index({ i, 0 }).item<float>(),
 						source.index({ i, 1 }).item<float>());
-					map(getIndex(_dstImages[0], pixelsDst[i])) = sf::Vector2u(p.x + origin.x, p.y + origin.y);
+					map(getIndex(_dstImages[0], pixelsDst[i])) = sf::Vector2u(p.x, p.y);
 				}
 			}
 		};
