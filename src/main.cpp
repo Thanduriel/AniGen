@@ -337,7 +337,8 @@ int main(int argc, char* argv[])
 				dstImages.reserve(targetSheets.size());
 				for (auto& sheet : targetSheets)
 					dstImages.push_back(sheet.frames[i]);
-				auto map = nn::constructMapOptim(referenceSprites, dstImages, numThreads, kernel.size.x);
+				const unsigned numEpochs = kernel[0] <= 1.f ? 200 : static_cast<unsigned>(kernel[0]);
+				auto map = nn::constructMapOptim(referenceSprites, dstImages, numThreads, kernel.size.x, numEpochs);
 				file << map;
 			}
 			break;
@@ -374,6 +375,11 @@ int main(int argc, char* argv[])
 			// an empty map is read before encountering eof
 			if (sheetMaps.back().size.x == 0)
 				sheetMaps.pop_back();
+			if (sheetMaps.empty())
+			{
+				std::cerr << "[Warning] The file " << name << " does not contain a valid map.\n";
+				transferMaps.pop_back();
+			}
 		}
 
 		if (debugFlag)
@@ -400,7 +406,8 @@ int main(int argc, char* argv[])
 				
 				const std::filesystem::path mapName = targetNames[j];
 				const std::string objectName = args::get(outputName);
-				sheet.save(objectName + "_" + mapName.stem().string() + ".png");
+				const std::string fileName = objectName + "_" + mapName.stem().string() + ".png";
+				sheet.save(fileName);
 			}
 		}
 	}

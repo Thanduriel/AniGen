@@ -1,5 +1,6 @@
 #include "optim.hpp"
 #include "../math/vectorext.hpp"
+#include <random>
 
 namespace nn {
 
@@ -206,18 +207,19 @@ namespace nn {
 	TransferMap constructMapOptim(const std::vector<sf::Image>& _srcImages,
 		const std::vector<sf::Image>& _dstImages,
 		unsigned _numThreads,
-		unsigned _radius)
+		unsigned _radius,
+		unsigned _numEpochs)
 	{
 		assert(_srcImages.size() == _dstImages.size());
 
 		ZoneMap srcZoneMap(_srcImages[0], _dstImages[0]);
 		ZoneMap dstZoneMap(_dstImages[0], _srcImages[0]);
 
-		// initial map is identity
+		// initial map is all to a pixel that should be empty
 		TransferMap map(_srcImages.front().getSize());
 		for (unsigned y = 0; y < map.size.y; ++y)
 			for (unsigned x = 0; x < map.size.x; ++x)
-				map(x, y) = sf::Vector2u(x, y);
+				map(x, y) = sf::Vector2u(0, 0);
 
 		using namespace details;
 
@@ -349,7 +351,6 @@ namespace nn {
 				const float translationX = target.x;
 				const float translationY = target.y;
 
-
 				auto makeNet = []( const sf::Vector2f& _centerTranslation,
 					const sf::Vector2f& _translation, float _rotation)
 				{
@@ -357,10 +358,12 @@ namespace nn {
 						.total_time(1.0)
 						.hidden_layers(1)
 						.residual(true));
-					// set initial map from center to center
 					torch::NoGradGuard noGrad;
-					net->bias.index_put_({ Slice() }, torch::tensor({ _centerTranslation.x, _centerTranslation.y }));
-					net->layers.back()->bias.index_put_({ Slice() }, torch::tensor({ _translation.x, _translation.y }));
+					// set initial map from center to center
+					// add a small shift to reduce risk of perfect pixel matches that
+					// provide no gradient
+					net->bias.index_put_({ Slice() }, torch::tensor({ _centerTranslation.x + 0.011f, _centerTranslation.y - 0.013f }));
+					net->layers.back()->bias.index_put_({ Slice() }, torch::tensor({ _translation.x - 0.015f, _translation.y + 0.012f }));
 					const float cos = std::cos(_rotation);
 					const float sin = std::sin(_rotation);
 					net->layers.back()->weight.index_put_({ Slice() }, torch::tensor({ {cos, -sin},{sin, cos} }));
@@ -383,6 +386,7 @@ namespace nn {
 				}
 				net = bestNet;
 
+				unsigned bestEpoch = 0;
 				float bestLoss = std::numeric_limits<float>::max();
 
 				// training
@@ -397,8 +401,7 @@ namespace nn {
 
 				size_t batchSize = std::max(pixelsSrc.size() / 4, size_t(12));
 
-				const size_t maxEpochs = 200;
-				for (size_t epoch = 0; epoch < maxEpochs; ++epoch)
+				for (unsigned epoch = 0; epoch < _numEpochs; ++epoch)
 				{
 					net->train();
 					for (auto& sampler : samplers)
@@ -457,6 +460,7 @@ namespace nn {
 					{
 						bestNet = clone(net);
 						bestLoss = lossValid;
+						bestEpoch = epoch;
 					}
 
 				//	std::cout << "Epoch: " << epoch << " loss: " << lossF
@@ -467,16 +471,20 @@ namespace nn {
 							batchSize = pixelsSrc.size();
 						}*/
 				}
+				const std::string msg = "Finished zone optimization with final loss "
+					+ std::to_string(bestLoss) + " achieved in epoch " 
+					+ std::to_string(bestEpoch) + ".\n";
+				std::cout << msg;
 
 				torch::NoGradGuard gradGuard;
 				// discretize the function
 				bestNet->computeInverse();
-				torch::Tensor source = bestNet->inverse(dstPositions);
+				const torch::Tensor source = bestNet->inverse(dstPositions);
 				for (int64_t i = 0; i < source.sizes()[0]; ++i)
 				{
-					sf::Vector2f p(source.index({ i, 0 }).item<float>(),
+					const sf::Vector2f p(source.index({ i, 0 }).item<float>(),
 						source.index({ i, 1 }).item<float>());
-					map(getIndex(_dstImages[0], pixelsDst[i])) = sf::Vector2u(p.x, p.y);
+					map[pixelsDst[i]] = sf::Vector2u(p.x, p.y);
 				}
 			}
 		};

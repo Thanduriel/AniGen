@@ -88,5 +88,6 @@ namespace nn {
 	TransferMap constructMapOptim(const std::vector<sf::Image>& _srcImages,
 		const std::vector<sf::Image>& _dstImages,
 		unsigned _numThreads = 1,
-		unsigned _radius = 3);
+		unsigned _radius = 3,
+		unsigned _numEpochs = 200);
 }
