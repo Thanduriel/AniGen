@@ -54,10 +54,8 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 	zone_map_cmd = ""
 	if zone_map:
 		zone_map_cmd = "-i {} -t {} -z".format(zone_map[0], zone_map[1])
-	dirs = [directories[i] for i in ref_set]
-	map_pairs, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
-	arg_list = scan.make_arg_list(map_pairs)
-	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop {} --threshold 0.9".format(
+	arg_list = scan.make_arg_list(ref_set)
+	command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"test.map\" -j 4 --crop {}".format(
 		zone_map_cmd,
 		arg_list, 
 		map_args[1],
@@ -71,33 +69,53 @@ def run_experiment(map_args, ref_set, test_set, similarity_measure,
 	end = time.time()
 	
 	# apply map
-	dirs = [directories[i] for i in test_set]
-	map_pairs, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
-	command = "AniGen apply -i {} -n {} -m {} -r {} -t test.map -o sprite".format(
-		map_pairs[0][0],
-		map_args[1], 
-		map_args[4], 
-		map_args[2])
-	subprocess.run(command, check=True, capture_output=not show_cmd_outputs)
+	result_sum = [0.0, 0.0]
+	for test_pair in test_set:
+		command = "AniGen apply -i {} -n {} -r {} -t test.map -o sprite".format(
+			test_pair[0],
+			map_args[1], 
+			map_args[2])
+		subprocess.run(command, check=True, capture_output=not show_cmd_outputs)
 	
-	# evaluate result
-	command = "AniGen evaluate -i \"{}\" -t sprite_test.png".format(map_pairs[0][1])
-	result = subprocess.run(command, check=True, capture_output=True, text=True)
+		# evaluate result
+		command = "AniGen evaluate -i \"{}\" -t sprite_test.png".format(test_pair[1])
+		result = subprocess.run(command, check=True, capture_output=True, text=True)
+		result = list(map(float, result.stdout.split(",")))
+		for i in range(0, len(result_sum)):
+			result_sum[i] += result[i]
+	for i in range(0, len(result_sum)):
+		result_sum[i] /= len(test_pair)
+	return result_sum, end-start
 
-	return list(map(float, result.stdout.split(","))), end-start
+def unpack_experiment(experiment):
+	name, map_args, ref_set, test_set, similarity_measure, zone_map = experiment
+	if isinstance(map_args,int): 
+		map_args = maps[map_args]
+	if isinstance(similarity_measure,int): 
+		similarity_measure = similarity_measures[similarity_measure]
+	if isinstance(ref_set[0], int):
+		dirs = [directories[i] for i in ref_set]
+		ref_set, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
+	if isinstance(test_set[0], int):
+		dirs = [directories[i] for i in test_set]
+		test_set, _ = scan.find_reference_pairs(dirs, map_args[0], map_args[3])
+
+	return Experiment(name,map_args,ref_set,test_set, similarity_measure, zone_map)
 
 # run a list of experiments and generate a result table
 def make_table(experiments):
 	results_table = PrettyTable()
 	results_table.field_names = ["name", "0-error", "1-error"]
 
-	for name, map_ind, ref_set, test_set, similarity_measure, zone_map in experiments:
-		err, duration = run_experiment(maps[map_ind], 
+	for exp in experiments:
+		name, map_args, ref_set, test_set, similarity_measure, zone_map = unpack_experiment(exp)
+		err, duration = run_experiment(map_args, 
 									ref_set, 
 									test_set, 
-									similarity_measures[similarity_measure], 
+									similarity_measure, 
 									zone_map,
-									show_cmd_outputs=True)
+									show_cmd_outputs=True,
+									crop_border=2)
 		results_table.add_row([name, err[0], err[1]])
 
 	return results_table
@@ -123,7 +141,8 @@ def goal_fn(X):
 		if (i+1) % kernel_size == 0:
 			similarity_measure += ";"
 
-	for name, map_ind, ref_set, test_set, _, zone_map in exp_similarity_optim:
+	for exp in exp_similarity_optim:
+		_, map_ind, ref_set, test_set, _, zone_map = unpack_experiment(exp)
 		err, _ = run_experiment(maps[map_ind], 
 								ref_set, 
 								test_set, 
@@ -165,9 +184,9 @@ def main():
 
 	map_ind = 2
 	similarity = 1
-	use_zone_map = zone_map
+	use_zone_map = None
 	exp_num_inputs = [
-		Experiment("1", map_ind, [0], [3], similarity, zone_map),
+		Experiment("1", map_ind, [0], [3], similarity, use_zone_map),
 		Experiment("1", map_ind, [1], [3], similarity, use_zone_map),
 		Experiment("2", map_ind, [0,1], [3], similarity, use_zone_map),
 		Experiment("3 template", map_ind, [0,1,2], [3], similarity, use_zone_map),
@@ -181,11 +200,11 @@ def main():
 		exp_similarity.append(Experiment(similarity_measures[i], 2, [0,1,2,6,5], [3], i, None))
 
 	#print(make_table(experimentsBasic))
-	#print(make_table(exp_num_inputs))
+	print(make_table(exp_num_inputs))
 	#print(make_table(exp_similarity))
 
 	#print(make_table(exp_similarity_optim))
-	run_optimization()
+	#run_optimization()
 	#print(make_table([Experiment("holes", 2, [0,1,2,5,6], [3], 2, 0)]))
 
 	#make_table([exp_similarity[2]])

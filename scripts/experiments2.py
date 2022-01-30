@@ -1,6 +1,8 @@
 import subprocess
 import re
 import os
+import scan
+import experiments
 
 # input name, input num frames, reference frame, target name, num target frames
 map_params = ("Input", 1, 0, "Walk", 8)
@@ -21,7 +23,7 @@ def makeZoneMapName(part, level, ani):
 			"{}ZoneMap_Male_{}_{}_ExtraDetailed.png".format(zone_map_path,part, ani))
 	else:
 		return ("{}ZoneMap_Male_{}_Input_{}.png".format(zone_map_path, part, level),
-			"{}ZoneMap_Male_{}_{}_{}".format(zone_map_path, part, ani, level))
+			"{}ZoneMap_Male_{}_{}_{}.png".format(zone_map_path, part, ani, level))
 
 similarity_measures = ["identity 1 x 1 1;",
 					   "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;",
@@ -33,9 +35,11 @@ similarity_measures = ["identity 1 x 1 1;",
 					   "mseoptim 5 x 5"
 ]
 
-generation_input = "-i ../Sprites/Input/Male_Skin_Input.png -t ../Sprites/Input/Male_Skin_Run.png"
+generation_input = [("../Sprites/Input/Male_Skin_Input.png", "../Sprites/Input/Male_Skin_Run.png")]
 
+reg_ex = re.compile('Input_(\w*)_(\d*).png')
 test_input_path = "../Sprites/Input/Armor/"
+test_output_path = "../Sprites/Output/Armor/"
 
 def makeReferenceAnis():
 	# create maps
@@ -47,9 +51,10 @@ def makeReferenceAnis():
 		if not os.path.isfile(zone_map_name[0]) or not os.path.isfile(zone_map_name[1]):
 			continue
 		zone_map_cmd = "-i {} -t {} -z".format(zone_map_name[0], zone_map_name[1])
+		inputs_args = scan.make_arg_list(generation_input)
 		command = "AniGen create {} {} -n {} -m {} -r {} -s \"{}\" -o \"{}\" --crop {} -j 4".format(
 			zone_map_cmd,
-			generation_input,
+			inputs_args,
 			1,
 			8,
 			0,
@@ -59,7 +64,6 @@ def makeReferenceAnis():
 		)
 		subprocess.run(command, check=True, capture_output=False)
 
-	reg_ex = re.compile('Input_(\w*)_(\d*).png')
 	for f in os.listdir(test_input_path):
 		m = re.match(reg_ex, f)
 		if m:
@@ -80,4 +84,28 @@ def makeReferenceAnis():
 			)
 			subprocess.run(command, check=True, capture_output=False)
 
-makeReferenceAnis()
+def main():
+	#makeReferenceAnis()
+	test_sets  = {}
+	for part in parts:
+		test_sets[part] = []
+	for f in os.listdir(test_input_path):
+		m = re.match(reg_ex, f)
+		if m:
+			part = m.groups()[0]
+			num = m.groups()[1]
+			out_name = "Output_{}_{}_Walk.png".format(num, part)
+			test_sets[part].append((test_input_path + f, test_output_path + out_name))
+
+	part = "Chest"
+	zone_map_level = 0
+	runs = []
+	for similarity in similarity_measures:
+		runs.append(experiments.Experiment(similarity, 
+			map_params, generation_input, test_sets[part], 
+			similarity, makeZoneMapName(part, zone_map_level, "Walk")))
+
+	print(experiments.make_table(runs))
+
+if __name__ == "__main__":
+	main()

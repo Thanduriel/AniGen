@@ -223,8 +223,14 @@ namespace nn {
 
 		using namespace details;
 
-		torch::set_num_threads(1);
-		torch::set_num_interop_threads(1);
+		// torch does not like calling these functions twice
+		static bool init = true;
+		if (init)
+		{
+			torch::set_num_threads(1);
+			torch::set_num_interop_threads(1);
+			init = false;
+		}
 
 		struct Task
 		{
