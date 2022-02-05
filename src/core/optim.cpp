@@ -344,7 +344,6 @@ namespace nn {
 					torch::Tensor outputBack = _net->inverse(dstPositions);
 					for (size_t j = 0; j < numImgs; ++j)
 					{
-	
 						lossValid += torch::mse_loss(srcValidation[j].getPixels(outputBack),
 							dstColors[j]).item<float>();
 					}

@@ -233,3 +233,18 @@ private:
 	DistMeasure2 m_distance;
 	float m_maxDistance;
 };
+
+// Provides the distance to an existing transfer map.
+// Using just this distance constructMap would generate _map again.
+class MapDistance
+{
+public:
+	// the last argument is just a dummy
+	MapDistance(const math::Matrix<sf::Vector2u>& _map);
+
+	sf::Vector2u getSize() const { return m_map.size; }
+	math::Matrix<float> operator()(unsigned x, unsigned y) const;
+private:
+	const math::Matrix<sf::Vector2u>& m_map;
+	float m_scaleFactor;
+};

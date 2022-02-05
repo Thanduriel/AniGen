@@ -339,6 +339,9 @@ int main(int argc, char* argv[])
 					dstImages.push_back(sheet.frames[i]);
 				const unsigned numEpochs = kernel[0] <= 1.f ? 200 : static_cast<unsigned>(kernel[0]);
 				auto map = nn::constructMapOptim(referenceSprites, dstImages, numThreads, kernel.size.x, numEpochs);
+				
+				if (minBorder)
+					map = extendMap(map, originalSize, originalPosition);
 				file << map;
 			}
 			break;
@@ -402,8 +405,18 @@ int main(int argc, char* argv[])
 				auto& mapSheet = transferMaps[j];
 				SpriteSheet sheet;
 				for (TransferMap& map : mapSheet)
-					sheet.frames.emplace_back(applyMap(map, reference));
-				
+				{
+					if (map.size != reference.getSize())
+					{
+						std::cerr << "[Error] Map with size (" 
+							<< map.size.x << ", " << map.size.y 
+							<< ") can not be applied to an image with size ("
+							<< reference.getSize().x << ", " << reference.getSize().y << ")";
+						abort();
+					}
+					else
+						sheet.frames.emplace_back(applyMap(map, reference));
+				}
 				const std::filesystem::path mapName = targetNames[j];
 				const std::string objectName = args::get(outputName);
 				const std::string fileName = objectName + "_" + mapName.stem().string() + ".png";

@@ -114,7 +114,7 @@ def make_table(experiments):
 									test_set, 
 									similarity_measure, 
 									zone_map,
-									show_cmd_outputs=True,
+									show_cmd_outputs=False,
 									crop_border=2)
 		results_table.add_row([name, err[0], err[1]])
 

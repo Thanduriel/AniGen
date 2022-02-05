@@ -3,14 +3,7 @@
 #include "map.hpp"
 #include "../math/matrix.hpp"
 #include "../spritesheet.hpp"
-/*#include <type_traits>
-namespace std{
-	template< class F, class... ArgTypes>
-	using result_of = std::invoke_result<F, ArgTypes...>;
 
-	template< class F, class... ArgTypes>
-	using result_of_t = typename std::invoke_result_t<F, ArgTypes...>;
-}*/
 #pragma warning (disable : 4624 )
 #include <torch/torch.h>
 

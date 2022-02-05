@@ -160,3 +160,22 @@ RotInvariantKernelDistance::RotInvariantKernelDistance(const sf::Image& _src,
 		KernelDistance(_src, _dst, _kernel, 1.75f)})
 {
 }
+
+// ************************************************************* //
+MapDistance::MapDistance(const math::Matrix<sf::Vector2u>& _map)
+	: m_map(_map)
+{
+	m_scaleFactor = 1.f / std::sqrt(static_cast<float>(math::dot(m_map.size, m_map.size)));
+}
+
+Matrix<float> MapDistance::operator()(unsigned x, unsigned y) const
+{
+	Matrix<float> distances(getSize());
+	const sf::Vector2u origin = m_map(x, y);
+	for (unsigned iy = 0; iy < m_map.size.y; ++iy)
+		for(unsigned ix = 0; ix < m_map.size.x; ++ix)
+		{
+			const sf::Vector2u dist = sf::Vector2u(ix, iy) - origin;
+			distances(ix, iy) = m_scaleFactor * std::sqrt(static_cast<float>(math::dot(dist, dist)));
+		}
+}

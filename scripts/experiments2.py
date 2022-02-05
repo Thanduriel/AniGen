@@ -29,8 +29,10 @@ similarity_measures = ["identity 1 x 1 1;",
 					   "equality 3 x 3 1 1 1; 1 1 1; 1 1 1;",
 					   "equality 3 x 3 1 1 1; 1 3 1; 1 1 1;",
 					   "equality 3 x 3 0.845 0.529 0.732; 0.561 0.754 0.367; 0.758 0.141 0.243;",
+					   "equalityrotinv 3 x 3 1 1 1; 1 1 1; 1 1 1;",
 					   "equalityrotinv 3 x 3 1 1 1; 1 3 1; 1 1 1;",
-					   "equalityrotinv 3 x 3 0.90553009 0.51973339 0.56880356 0.73786717 0.76955676 0.0523793 0.60405608 0.30422786 0.39515804;",
+					   "equalityrotinv 3 x 3 0.90553009 0.51973339 0.56880356; 0.73786717 0.76955676 0.0523793; 0.60405608 0.30422786 0.39515804;",
+					   "equalityrotinv 3 x 3 0.0 1.0 0.0; 1.0 5.0 1.0; 0.0 1.0 0.0;",
 					   "mseoptim 3 x 3",
 					   "mseoptim 5 x 5"
 ]
@@ -98,14 +100,15 @@ def main():
 			test_sets[part].append((test_input_path + f, test_output_path + out_name))
 
 	part = "Chest"
-	zone_map_level = 0
-	runs = []
-	for similarity in similarity_measures:
-		runs.append(experiments.Experiment(similarity, 
-			map_params, generation_input, test_sets[part], 
-			similarity, makeZoneMapName(part, zone_map_level, "Walk")))
+	for zone_map_level in range(0,4):
+		runs = []
+		for similarity in similarity_measures:
+			runs.append(experiments.Experiment(similarity, 
+				map_params, generation_input, test_sets[part], 
+				similarity, makeZoneMapName(part, zone_map_level, "Walk")))
 
-	print(experiments.make_table(runs))
+		print("zone map detail level: {}".format(zone_map_level))
+		print(experiments.make_table(runs))
 
 if __name__ == "__main__":
 	main()
