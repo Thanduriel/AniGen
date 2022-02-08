@@ -178,4 +178,6 @@ Matrix<float> MapDistance::operator()(unsigned x, unsigned y) const
 			const sf::Vector2u dist = sf::Vector2u(ix, iy) - origin;
 			distances(ix, iy) = m_scaleFactor * std::sqrt(static_cast<float>(math::dot(dist, dist)));
 		}
+
+	return distances;
 }

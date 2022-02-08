@@ -72,12 +72,33 @@ private:
 	sf::Vector2u m_kernelHalSize;
 };
 
+template<typename BaseDistance>
+class ScaleDistance
+{
+public:
+	ScaleDistance(BaseDistance&& _baseDistance, float _scale) 
+		: m_distance(_baseDistance), m_scale(_scale) {}
+
+	math::Matrix<float> operator()(unsigned x, unsigned y) const
+	{
+		auto dist = m_distance(x, y);
+		dist *= m_scale;
+		return dist;
+	}
+
+	sf::Vector2u getSize() const { return m_distance.getSize(); }
+private:
+	BaseDistance m_distance;
+	float m_scale;
+};
+
+// sum over different kinds of distance measures
 template<typename... DistanceMeasures>
 class SumDistance
 {
 public:
 	SumDistance(DistanceMeasures&&... _distanceMeasures)
-		: m_distances(std::move<DistanceMeasures>(_distanceMeasures)...)
+		: m_distances(std::forward<DistanceMeasures>(_distanceMeasures)...)
 	{}
 
 	math::Matrix<float> operator()(unsigned x, unsigned y) const
@@ -96,7 +117,7 @@ private:
 	std::tuple<DistanceMeasures...> m_distances;
 };
 
-// sum but for a single type
+// mean for a single type
 template<typename DistanceMeasure>
 class GroupDistance
 {
@@ -235,7 +256,7 @@ private:
 };
 
 // Provides the distance to an existing transfer map.
-// Using just this distance constructMap would generate _map again.
+// Using only this distance for constructMap would generate _map again.
 class MapDistance
 {
 public:
@@ -245,6 +266,6 @@ public:
 	sf::Vector2u getSize() const { return m_map.size; }
 	math::Matrix<float> operator()(unsigned x, unsigned y) const;
 private:
-	const math::Matrix<sf::Vector2u>& m_map;
+	math::Matrix<sf::Vector2u> m_map;
 	float m_scaleFactor;
 };

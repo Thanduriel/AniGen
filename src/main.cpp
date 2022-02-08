@@ -29,6 +29,7 @@ enum struct SimilarityType
 	MinEqualityRotInv,
 #ifdef WITH_TORCH
 	MSEOptim,
+	EqualityMSEOptim,
 #endif
 	COUNT
 };
@@ -43,7 +44,8 @@ const std::array<std::string, static_cast<size_t>(SimilarityType::COUNT)> SIMILA
 	{"minblur"},
 	{"minequalityrotinv"},
 #ifdef WITH_TORCH
-	{"mseoptim"}
+	{"mseoptim"},
+	{"equality_mseoptim"}
 #endif
 } };
 
@@ -89,9 +91,10 @@ struct MapMaker
 	std::ofstream& file;
 	bool debugFlag;
 	std::vector<sf::Image>& confidenceImgs;
+	const Matrix<float>& kernel;
 
-	template<typename Similarity, template<typename> class Group, bool WithId>
-	void run(const Matrix<float>& _kernel)
+	template<typename Similarity, template<typename> class Group, typename MakeSimilarity = int, bool WithId = false>
+	void run(const MakeSimilarity& _othSimilarity = 0)
 	{
 		for (int i = 0; i < numFrames; ++i)
 		{
@@ -108,10 +111,10 @@ struct MapMaker
 			for (size_t j = zoneMap ? 1 : 0; j < targetSheets.size(); ++j)
 			{
 				if constexpr (WithId)
-					distances.emplace_back(IdentityDistance(referenceSprites[j], targetSheets[j].frames[i], _kernel),
-						Similarity(referenceSprites[j], targetSheets[j].frames[i], _kernel));
+					distances.emplace_back(IdentityDistance(referenceSprites[j], targetSheets[j].frames[i], kernel),
+						Similarity(referenceSprites[j], targetSheets[j].frames[i], kernel));
 				else
-					distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], _kernel);
+					distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], kernel);
 			}
 
 			auto constructGroupSim = [&]()
@@ -121,8 +124,15 @@ struct MapMaker
 				else
 					return GroupSimilarity(std::move(distances));
 			};
+			auto constructFullSim = [&]()
+			{
+				if constexpr (std::is_same_v<MakeSimilarity, int>)
+					return constructGroupSim();
+				else
+					return SumDistance(constructGroupSim(), _othSimilarity(i));
+			};
 
-			auto [map, confidence] = constructMap(constructGroupSim(),
+			auto [map, confidence] = constructMap(constructFullSim(),
 				zoneMap.get(),
 				numThreads);
 
@@ -307,23 +317,24 @@ int main(int argc, char* argv[])
 			originalPosition,
 			file,
 			debugFlag,
-			confidenceImgs};
+			confidenceImgs,
+			kernel};
 
 		switch (type)
 		{
-		case SimilarityType::Identity: maker.run<IdentityDistance, GroupDistanceThreshold, false>(kernel);
+		case SimilarityType::Identity: maker.run<IdentityDistance, GroupDistanceThreshold>();
 			break;
-		case SimilarityType::Equality: maker.run<KernelDistance, GroupDistanceThreshold, false>(kernel);
+		case SimilarityType::Equality: maker.run<KernelDistance, GroupDistanceThreshold>();
 			break;
-		case SimilarityType::Blur: maker.run<BlurDistance, GroupDistanceThreshold, false>(kernel);
+		case SimilarityType::Blur: maker.run<BlurDistance, GroupDistanceThreshold>();
 			break;
-		case SimilarityType::EqualityRotInv:maker.run<RotInvariantKernelDistance, GroupDistanceThreshold, false > (kernel);
+		case SimilarityType::EqualityRotInv:maker.run<RotInvariantKernelDistance, GroupDistanceThreshold>();
 			break;
-		case SimilarityType::MinEquality: maker.run<KernelDistance, GroupMinDistance, false>(kernel);
+		case SimilarityType::MinEquality: maker.run<KernelDistance, GroupMinDistance>();
 			break;
-		case SimilarityType::MinBlur: maker.run<BlurDistance, GroupMinDistance, false>(kernel);
+		case SimilarityType::MinBlur: maker.run<BlurDistance, GroupMinDistance>();
 			break;
-		case SimilarityType::MinEqualityRotInv:maker.run< RotInvariantKernelDistance, GroupMinDistance, false > (kernel);
+		case SimilarityType::MinEqualityRotInv:maker.run< RotInvariantKernelDistance, GroupMinDistance>();
 			break;
 #ifdef WITH_TORCH
 		case SimilarityType::MSEOptim:
@@ -344,6 +355,18 @@ int main(int argc, char* argv[])
 					map = extendMap(map, originalSize, originalPosition);
 				file << map;
 			}
+			break;
+		case SimilarityType::EqualityMSEOptim:
+			auto makeOptimSimilarity = [&](size_t frame)
+			{
+				std::vector<sf::Image> dstImages;
+				dstImages.reserve(targetSheets.size());
+				for (auto& sheet : targetSheets)
+					dstImages.push_back(sheet.frames[frame]);
+				auto map = nn::constructMapOptim(referenceSprites, dstImages, numThreads, 5, 128);
+				return ScaleDistance(MapDistance(map), 0.5f);
+			};
+			maker.run<KernelDistance, GroupDistanceThreshold>(makeOptimSimilarity);
 			break;
 #endif
 		};
