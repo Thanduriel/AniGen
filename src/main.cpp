@@ -98,6 +98,7 @@ struct MapMaker
 	{
 		for (int i = 0; i < numFrames; ++i)
 		{
+			std::cout << "Creating map for frame " << i << "...\n";
 			using SimilarityT = std::conditional_t<WithId,
 				MaskCompositionDistance<IdentityDistance, Similarity>,
 				Similarity>;

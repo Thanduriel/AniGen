@@ -146,18 +146,20 @@ Matrix<float> BlurDistance::operator()(unsigned x, unsigned y) const
 }
 
 // ************************************************************* //
+
+constexpr float pi = 3.14159265f;
 RotInvariantKernelDistance::RotInvariantKernelDistance(const sf::Image& _src,
 	const sf::Image& _dst,
 	const math::Matrix<float>& _kernel)
 	: GroupMinDistance({ 
-		KernelDistance(_src, _dst, _kernel, 0.f),
-		KernelDistance(_src, _dst, _kernel, 0.25f),
-		KernelDistance(_src, _dst, _kernel, 0.5f),
-		KernelDistance(_src, _dst, _kernel, 0.75f),
-		KernelDistance(_src, _dst, _kernel, 1.f),
-		KernelDistance(_src, _dst, _kernel, 1.25f),
-		KernelDistance(_src, _dst, _kernel, 1.5f),
-		KernelDistance(_src, _dst, _kernel, 1.75f)})
+		KernelDistance(_src, _dst, _kernel, pi * 0.f),
+		KernelDistance(_src, _dst, _kernel, pi * 0.25f),
+		KernelDistance(_src, _dst, _kernel, pi * 0.5f),
+		KernelDistance(_src, _dst, _kernel, pi * 0.75f),
+		KernelDistance(_src, _dst, _kernel, pi * 1.f),
+		KernelDistance(_src, _dst, _kernel, pi * 1.25f),
+		KernelDistance(_src, _dst, _kernel, pi * 1.5f),
+		KernelDistance(_src, _dst, _kernel, pi * 1.75f)})
 {
 }
 

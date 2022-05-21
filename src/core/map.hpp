@@ -18,6 +18,8 @@ public:
 
 	auto begin() const { return m_srcZones.begin(); }
 	auto end() const { return m_srcZones.end(); }
+
+	const sf::Image& getDst() const { return m_dst; };
 private:
 	std::unordered_map<sf::Uint32, PixelList> m_srcZones;
 	const sf::Image& m_dst;
@@ -67,8 +69,11 @@ auto constructMap(const DistanceMeasure& _distanceMeasure,
 					const ZoneMap::PixelList& zone = (*_zoneMap)(x,y);
 					if (zone.empty())
 					{
-						std::cout << "[Warning] Zone map is invalid. The color at ("
-							<< x << ", " << y << ") does not exist in the reference.\n";
+						const sf::Color col = (*_zoneMap).getDst().getPixel(x, y);
+						std::cout << "[Warning] Zone map is invalid. The color ("
+							<< (int)col.r << ", " << (int)col.g << ", "
+							<< (int)col.b << ", " << (int)col.a << ")"
+							<< " at (" << x << ", " << y << ") does not exist in the reference.\n";
 					}
 					else
 					{

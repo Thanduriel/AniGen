@@ -31,6 +31,8 @@ class KernelDistance : public DistanceBase
 {
 public:
 	// Create a kernel distance measure with constant weights.
+	// @param _rotation - rotation in radians by which the kernel is 
+	//					rotated and then discretized again
 	KernelDistance(const sf::Image& _src,
 		const sf::Image& _dst,
 		const sf::Vector2u& _kernelSize = sf::Vector2u(3, 3),

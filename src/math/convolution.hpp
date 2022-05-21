@@ -36,6 +36,7 @@ namespace math {
 		paddedImg.create(size.x + _kernel.size.x-1, size.y + _kernel.size.y - 1);
 		paddedImg.copy(_image, kernelHalf.x, kernelHalf.y);
 		const sf::Uint8* pixels = paddedImg.getPixelsPtr();
+		const sf::Vector2u paddedSize = paddedImg.getSize();
 
 		// result matrix can be reused
 		Matrix<DistanceType> kernelResult(_kernel.size);
@@ -44,12 +45,17 @@ namespace math {
 			for (unsigned i = 0; i < _kernel.size.y; ++i)
 			{
 				const unsigned yInd = (y + i - kernelHalf.y);
+				const unsigned yFlat = yInd * paddedSize.x;
 				for (unsigned j = 0; j < _kernel.size.x; ++j)
 				{
 					const unsigned xInd = x + j - kernelHalf.x;
 					const unsigned kernelInd = j + i * _kernel.size.x;
+					// sf::Image::getPixel but inline
+					const sf::Uint8* pixel = &pixels[4 * (xInd + yFlat)];
+					const sf::Color fastCol(pixel[0], pixel[1], pixel[2], pixel[3]);
+
 					kernelResult[kernelInd] = _dist(_kernel[kernelInd],
-						paddedImg.getPixel(xInd, yInd));
+						fastCol);
 				}
 			}
 			return _reduce(kernelResult);

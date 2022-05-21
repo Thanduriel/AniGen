@@ -224,12 +224,12 @@ namespace nn {
 		using namespace details;
 
 		// torch does not like calling these functions twice
-		static bool init = true;
-		if (init)
+		static bool init = false;
+		if (!init)
 		{
 			torch::set_num_threads(1);
 			torch::set_num_interop_threads(1);
-			init = false;
+			init = true;
 		}
 
 		struct Task
@@ -304,8 +304,8 @@ namespace nn {
 					const ColorEmbedding& embedding = embeddings.back();
 					srcInterpolated.emplace_back(_srcImages[i], embedding, pixelsSrc, _radius);
 					dstInterpolated.emplace_back(_dstImages[i], embedding, pixelsDst, _radius);
-					srcValidation.emplace_back(_srcImages[i], embedding, pixelsSrc, 2);
-					dstValidation.emplace_back(_dstImages[i], embedding, pixelsDst, 1);
+					srcValidation.emplace_back(_srcImages[i], embedding, pixelsSrc, 1);
+					dstValidation.emplace_back(_dstImages[i], embedding, pixelsDst, 2);
 
 					const int64_t numPixels = static_cast<int64_t>(pixelsSrc.size());
 					const int64_t dims = static_cast<int64_t>(embedding.dimension());
@@ -489,7 +489,9 @@ namespace nn {
 				{
 					const sf::Vector2f p(source.index({ i, 0 }).item<float>(),
 						source.index({ i, 1 }).item<float>());
-					map[pixelsDst[i]] = sf::Vector2u(p.x, p.y);
+					// pixels are squares centered on the whole numbers so the closest pixel
+					// must be rounded properly
+					map[pixelsDst[i]] = sf::Vector2u(std::round(p.x), std::round(p.y));
 				}
 			}
 		};
