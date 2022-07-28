@@ -47,7 +47,8 @@ TransferMap extendMap(const TransferMap& _map,
 template<typename DistanceMeasure>
 auto constructMap(const DistanceMeasure& _distanceMeasure,
 	const ZoneMap* _zoneMap = nullptr,
-	unsigned _numThreads = 1)
+	unsigned _numThreads = 1,
+	sf::Vector2u _originOffset = {})
 	-> std::pair<TransferMap, math::Matrix<float>>
 {
 	const sf::Vector2u size = _distanceMeasure.getSize();
@@ -73,7 +74,7 @@ auto constructMap(const DistanceMeasure& _distanceMeasure,
 						std::cout << "[Warning] Zone map is invalid. The color ("
 							<< (int)col.r << ", " << (int)col.g << ", "
 							<< (int)col.b << ", " << (int)col.a << ")"
-							<< " at (" << x << ", " << y << ") does not exist in the reference.\n";
+							<< " at (" << _originOffset.x + x << ", " << _originOffset.y + y << ") does not exist in the reference.\n";
 					}
 					else
 					{

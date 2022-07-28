@@ -135,7 +135,8 @@ struct MapMaker
 
 			auto [map, confidence] = constructMap(constructFullSim(),
 				zoneMap.get(),
-				numThreads);
+				numThreads,
+				originalPosition);
 
 			if (minBorder)
 				map = extendMap(map, originalSize, originalPosition);
