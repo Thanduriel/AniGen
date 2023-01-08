@@ -68,7 +68,9 @@ namespace math {
 				elements.size() * sizeof(T));
 		}
 
-		template<typename Stream, typename = std::enable_if_t<utils::is_stream_writable<Stream,T>::value>>
+		// torch does not work with C++20 and also uses c10::utils somewhere causing ambiguity
+		// with the namespace utils
+		template<typename Stream, typename = std::enable_if_t<::utils::is_stream_writable<Stream,T>::value>>
 	//	requires requires (T x) { std::declval<std::ofstream>() << x; }
 		void save(Stream& _stream) const
 		{
@@ -95,7 +97,7 @@ namespace math {
 			_stream.read(reinterpret_cast<char*>(elements.data()), elements.size() * sizeof(T));
 		}
 
-		template<typename Stream, typename = std::enable_if_t<utils::is_stream_readable<Stream, T>::value>>
+		template<typename Stream, typename = std::enable_if_t<::utils::is_stream_readable<Stream, T>::value>>
 		Stream& load(Stream& _in, T _default = {})
 	//	requires requires (T x) { std::declval<std::ifstream>() >> x; }
 		{

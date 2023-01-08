@@ -94,7 +94,7 @@ namespace nn {
 		}
 
 		// *************************************************************** //
-		using namespace torch;
+		using Tensor = torch::Tensor;
 		using namespace torch::indexing;
 
 		InterpolatedImage::InterpolatedImage(const sf::Image& _src,
@@ -153,9 +153,9 @@ namespace nn {
 
 		Tensor InterpolatedImage::getPixels(const Tensor& _positions) const
 		{
-			Tensor low = _positions.floor();
-			Tensor high = _positions.ceil();
-			Tensor t = _positions - low;
+			const Tensor low = _positions.floor();
+			const Tensor high = _positions.ceil();
+			const Tensor t = _positions - low;
 			Tensor result = torch::zeros({ _positions.size(0), m_embeddingDim });
 
 			for (int64_t i = 0; i < _positions.size(0); ++i)
@@ -173,10 +173,10 @@ namespace nn {
 				const unsigned highX = clampX(high.index({ i, 0 }).item<float>());
 				const unsigned lowY = clampY(low.index({ i, 1 }).item<float>());
 				const unsigned highY = clampY(high.index({ i, 1 }).item<float>());
-				Tensor xy = m_embeddedColors(lowX, lowY);
-				Tensor Xy = m_embeddedColors(highX, lowY);
-				Tensor xY = m_embeddedColors(lowX, highY);
-				Tensor XY = m_embeddedColors(highX, highY);
+				const Tensor xy = m_embeddedColors(lowX, lowY);
+				const Tensor Xy = m_embeddedColors(highX, lowY);
+				const Tensor xY = m_embeddedColors(lowX, highY);
+				const Tensor XY = m_embeddedColors(highX, highY);
 
 				const auto& tx = t.index({ i,0 });
 				const auto& ty = t.index({ i,1 });
@@ -190,13 +190,13 @@ namespace nn {
 	}
 
 	template<typename Module>
-	Module clone(const Module& _module)
+	static Module clone(const Module& _module)
 	{
 		using ModuleImpl = typename Module::Impl;
 		return Module(std::dynamic_pointer_cast<ModuleImpl>(_module->clone()));
 	}
 
-	torch::Tensor indexSlice(const torch::Tensor& _tensor, const std::vector<size_t>& _inds)
+	static torch::Tensor indexSlice(const torch::Tensor& _tensor, const std::vector<size_t>& _inds)
 	{
 		torch::Tensor tensor = torch::zeros({ int64_t(_inds.size()), _tensor.sizes()[1] });
 		for (size_t i = 0; i < _inds.size(); ++i)
@@ -310,9 +310,8 @@ namespace nn {
 					const int64_t numPixels = static_cast<int64_t>(pixelsSrc.size());
 					const int64_t dims = static_cast<int64_t>(embedding.dimension());
 					srcColors.push_back(torch::zeros({ numPixels, dims }));
-					srcPositions.push_back(torch::zeros({ numPixels, 2 }, requires_grad(true)));
+					srcPositions.push_back(torch::zeros({ numPixels, 2 }, torch::requires_grad(true)));
 
-					using namespace torch::indexing;
 					for (size_t j = 0; j < numPixels; ++j)
 					{
 						const int64_t col = static_cast<int64_t>(j);

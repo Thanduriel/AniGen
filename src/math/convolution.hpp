@@ -54,8 +54,7 @@ namespace math {
 					const sf::Uint8* pixel = &pixels[4 * (xInd + yFlat)];
 					const sf::Color fastCol(pixel[0], pixel[1], pixel[2], pixel[3]);
 
-					kernelResult[kernelInd] = _dist(_kernel[kernelInd],
-						fastCol);
+					kernelResult[kernelInd] = _dist(_kernel[kernelInd], fastCol);
 				}
 			}
 			return _reduce(kernelResult);
