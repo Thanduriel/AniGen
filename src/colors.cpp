@@ -1,4 +1,5 @@
 #include "colors.hpp"
+#include <cmath>
 
 sf::Color HSVtoRGB(const HSV& in)
 {

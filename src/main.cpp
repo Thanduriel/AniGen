@@ -187,7 +187,7 @@ int main(int argc, char* argv[])
 		{ 'o', "output" });
 
 	args::Flag zoneMapFlag(createArgs, "zone_map",
-		"for (create) use the first (input,target) pair as zone map instead as regular input", 
+		"for (create) use the first (input,target) pair as zone map instead of as regular input", 
 		{ 'z', "zones" });
 
 	args::ValueFlag<std::string> similarityMeasure(createArgs, "similarity_measure",
@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
 		"accelerate (create) by cropping the empty frame around each sprite to at most crop_border pixels",
 		{ "crop" }, 0);
 	args::ValueFlag<float> discardTreshold(createArgs, "discard_threshold",
-		"discards distance values during (create) with multiple sprites if are larger mean + threshold; distance values are in the range [0,1]",
+		"discards distance values during (create) with multiple sprites if they are larger than mean + threshold; distance values are in the range [0,1]",
 		{ "threshold" }, 1.0);
 
 	args::GlobalOptions globals(parser, arguments);

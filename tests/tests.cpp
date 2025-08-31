@@ -7,6 +7,7 @@
 #include <iostream>
 #include <random>
 #include <fstream>
+#include <cstring>
 //#include <numbers>
 
 # define EXPECT(cond,description)										\

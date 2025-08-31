@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/System.hpp>
+#include <cmath>
 
 namespace math {
 	inline sf::Vector3f toVec(const sf::Color& _color)

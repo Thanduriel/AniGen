@@ -8,9 +8,9 @@ namespace eval {
 
 	struct PixelNeighbourhood
 	{
-		PixelNeighbourhood(int _maxRadius = 0) : maxRadius(_maxRadius) {}
+		PixelNeighbourhood(unsigned _maxRadius = 0) : maxRadius(_maxRadius) {}
 
-		int maxRadius;
+		unsigned maxRadius;
 		
 		float operator()(unsigned _x, unsigned _y, const sf::Image& _a, const sf::Image& _b);
 	};

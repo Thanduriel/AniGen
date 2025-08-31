@@ -24,8 +24,6 @@ namespace eval {
 		const sf::Vector2u size = a.getSize();
 		difImage.create(size.x, size.y);
 
-		int numDiffs = 0;
-
 		for (unsigned y = 0; y < size.y; ++y)
 		{
 			for (unsigned x = 0; x < size.x; ++x)

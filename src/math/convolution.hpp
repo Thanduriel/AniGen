@@ -25,8 +25,8 @@ namespace math {
 	auto applyConvolution(const sf::Image& _image, const Matrix<T>& _kernel,
 		Distance _dist, Reduce _reduce)
 	{
-		using ReturnType = decltype(std::function{ _reduce })::result_type;
-		using DistanceType = decltype(std::function{ _dist })::result_type;
+		using ReturnType = typename decltype(std::function{ _reduce })::result_type;
+		using DistanceType = typename decltype(std::function{ _dist })::result_type;
 
 		const sf::Vector2u size = _image.getSize();
 		const sf::Vector2u kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);

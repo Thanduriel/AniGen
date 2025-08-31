@@ -48,10 +48,10 @@ KernelDistance::KernelDistance(const sf::Image& _src,
 	const math::Matrix<float>& _kernel,
 	float _rotation)
 	: DistanceBase(_src, _dst),
-	m_kernelWeights(_kernel),
 	m_kernelHalSize(_kernel.size.x / 2, _kernel.size.y / 2),
-	m_kernelSum(std::accumulate(m_kernelWeights.begin(), m_kernelWeights.end(), 0.f)),
-	m_sampleCoords(_kernel.size)
+	m_kernelWeights(_kernel),
+	m_sampleCoords(_kernel.size),
+	m_kernelSum(std::accumulate(m_kernelWeights.begin(), m_kernelWeights.end(), 0.f))
 {
 	const int kernelSizeX = m_kernelWeights.size.x;
 	const int kernelSizeY = m_kernelWeights.size.y;
@@ -112,8 +112,6 @@ BlurDistance::BlurDistance(const sf::Image& _src,
 	const math::Matrix<float>& _kernel)
 	: DistanceBase(_src, _dst)
 {
-	const sf::Vector2u size = _src.getSize();
-
 	const sf::Vector2u kernelHalf(_kernel.size.x / 2, _kernel.size.y / 2);
 	const float kernelSum = std::accumulate(_kernel.begin(), _kernel.end(), 0.f);
 
