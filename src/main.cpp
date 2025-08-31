@@ -10,6 +10,7 @@
 #include "spritesheet.hpp"
 #include "core/map.hpp"
 #include "core/pixelsimilarity.hpp"
+#include "core/pixelchains.hpp"
 #include "colors.hpp"
 #include "eval/eval.hpp"
 #ifdef WITH_TORCH
@@ -27,6 +28,7 @@ enum struct SimilarityType
 	MinEquality,
 	MinBlur,
 	MinEqualityRotInv,
+	Chain,
 #ifdef WITH_TORCH
 	MSEOptim,
 	EqualityMSEOptim,
@@ -43,6 +45,7 @@ const std::array<std::string, static_cast<size_t>(SimilarityType::COUNT)> SIMILA
 	{"minequality"},
 	{"minblur"},
 	{"minequalityrotinv"},
+	{"chain"},
 #ifdef WITH_TORCH
 	{"mseoptim"},
 	{"equality_mseoptim"}
@@ -60,16 +63,29 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 	ss >> typeStr;
 	const auto typeIt = std::find(SIMILARITY_TYPE_NAMES.begin(), SIMILARITY_TYPE_NAMES.end(), typeStr);
 
-	if (!ss || sizeSplit == std::string::npos || typeIt == SIMILARITY_TYPE_NAMES.end())
+	if (typeIt == SIMILARITY_TYPE_NAMES.end())
 	{
-		std::cerr << "[Warning] Could not parse the provided similarity_measure argument. Using defaults \""
-			<< defaultSimilarity << "\" instead.\n";
-		return parseSimilarityArg(std::string(defaultSimilarity));
+		std::cerr << "[Error] Could not parse the provided similarity_measure argument. Uknown similarity measure "
+			<< "\"" << typeStr << "\"\n";
+		std::abort();
 	}
 
 	Matrix<float> kernel;
-	kernel.load(ss, 1.f);
 	SimilarityType type = static_cast<SimilarityType>(std::distance(SIMILARITY_TYPE_NAMES.begin(), typeIt));
+
+	// does not need a kernel
+	if (type == SimilarityType::Chain)
+		return {type, kernel};
+
+	// parse kernel specification
+	if (!ss || sizeSplit == std::string::npos)
+	{
+		std::cerr << "[Error] Could not parse the provided similarity_measure argument. Using defaults \""
+			<< defaultSimilarity << "\" instead.\n";
+		std::abort();
+	}
+
+	kernel.load(ss, 1.f);
 	// there is no difference if kernel size 1 is used
 	if (kernel.size == sf::Vector2u(1,1) && type == SimilarityType::Equality) 
 		type = SimilarityType::Identity;
@@ -92,6 +108,41 @@ struct MapMaker
 	bool debugFlag;
 	std::vector<sf::Image>& confidenceImgs;
 	const Matrix<float>& kernel;
+
+	void runChains()
+	{
+		// input validation
+		if (!zoneMapFlag)
+		{
+			std::cerr << "[Error] Distance measure \"chains\" requires a zone map consisting of single pixel lines.\n";
+			std::abort();
+		}
+		if (referenceSprites.size() != 2 || targetSheets.size() != 2)
+		{
+			std::cerr << "[Error] Invalid configuration for distance measure \"chains\". Expected two input sprites and two output sheets (zonemap + regular pair).";
+			std::abort();
+		}
+
+		for (int i = 0; i < numFrames; ++i)
+		{
+			std::cout << "Creating map for frame " << i << "...\n";
+
+				// create zonemaps for both sprites
+			const ZoneMap srcZoneMap(referenceSprites[0], targetSheets[0].frames[i]);
+			const ZoneMap dstZoneMap(targetSheets[0].frames[i], referenceSprites[0]);
+
+			// index 1 because we always expect a zonemap
+			TransferMap map = constructMap(referenceSprites[1], 
+				targetSheets[1].frames[i],
+				srcZoneMap,
+				dstZoneMap);
+			if (minBorder)
+				map = extendMap(map, originalSize, originalPosition);
+
+			file << map;
+		}
+
+	}
 
 	template<typename Similarity, template<typename> class Group, typename MakeSimilarity = int, bool WithId = false>
 	void run(const MakeSimilarity& _othSimilarity = 0)
@@ -337,6 +388,8 @@ int main(int argc, char* argv[])
 		case SimilarityType::MinBlur: maker.run<BlurDistance, GroupMinDistance>();
 			break;
 		case SimilarityType::MinEqualityRotInv:maker.run< RotInvariantKernelDistance, GroupMinDistance>();
+			break;
+		case SimilarityType::Chain: maker.runChains();
 			break;
 #ifdef WITH_TORCH
 		case SimilarityType::MSEOptim:

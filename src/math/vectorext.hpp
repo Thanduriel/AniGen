@@ -37,4 +37,10 @@ namespace math {
 	{
 		return std::sqrt(distSq(a, b));
 	}
+
+	template<typename T>
+	T absDist(const sf::Vector2<T>& a, const sf::Vector2<T>& b)
+	{
+		return std::abs(a.x - b.x) + std::abs(a.y - b.y);
+	}
 }
