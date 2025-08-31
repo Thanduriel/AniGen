@@ -371,6 +371,9 @@ int main(int argc, char* argv[])
 			maker.run<KernelDistance, GroupDistanceThreshold>(makeOptimSimilarity);
 			break;
 #endif
+		default:
+			std::cerr << "[Error] Invalid similarity type " << static_cast<int>(type) << ".\n";
+			return 1;
 		};
 
 		if (debugFlag)

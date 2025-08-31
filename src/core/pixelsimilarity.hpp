@@ -150,8 +150,8 @@ class GroupDistanceThreshold
 public:
 	explicit GroupDistanceThreshold(std::vector<DistanceMeasure>&& _distanceMeasures,
 			float _threshold = 1.f)
-		: m_distances(std::move(_distanceMeasures)),
-		m_discardThreshold(_threshold)
+		: m_discardThreshold(_threshold),
+		m_distances(std::move(_distanceMeasures))
 	{}
 
 	math::Matrix<float> operator()(unsigned x, unsigned y) const
