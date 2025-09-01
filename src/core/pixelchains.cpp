@@ -26,7 +26,7 @@ PixelChain makePixelChain(const ZoneMap::PixelList& _pixels,
 	{
 		dists.clear();
 		for (Vector2u p : remainingPixels)
-			dists.push_back(math::dot(o, p));
+			dists.push_back(math::distSq(o, p));
 	};
 
 	while (!remainingPixels.empty()) 
@@ -89,10 +89,10 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 
 		// determine orientation by finding the closest front/back pair
 		const std::array<size_t, 4> chainDistances = {
-			math::dot(srcChain.front(), dstChain.front()),
-			math::dot(srcChain.front(), dstChain.back()),
-			math::dot(srcChain.back(), dstChain.front()),
-			math::dot(srcChain.back(), dstChain.back())
+			math::distSq(srcChain.front(), dstChain.front()),
+			math::distSq(srcChain.front(), dstChain.back()),
+			math::distSq(srcChain.back(), dstChain.front()),
+			math::distSq(srcChain.back(), dstChain.back())
 		};
 		auto minDist = std::min_element(chainDistances.begin(), chainDistances.end());
 		auto minDistIdx = std::distance(chainDistances.begin(), minDist); 
@@ -101,18 +101,22 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 			std::reverse(dstChain.begin(), dstChain.end());
 
 		// Build map by walking the chains rescaled by the length ratio
-		// to arrive at the end at the same time.
-		const float speed = srcChain.size() / static_cast<float>(dstChain.size());
-		float srcProgress = 0.f;
+		// to arrive at the end at the same time. We use int arithmetic
+		// to avoid any rounding. +1 To reach the last pixel of the src chain.
+		const size_t speed = srcChain.size() - 1;
+		const size_t divisor = dstChain.size() -1;
+		size_t srcProgress = 0;
 		auto srcIt = srcChain.begin();
 		for (auto dstPixel : dstChain)
 		{
 			transferMap(dstPixel) = *srcIt;
 			
 			srcProgress += speed;
-			const size_t advanceSteps = static_cast<size_t>(srcProgress);
-			srcProgress -= advanceSteps;
-			srcIt += advanceSteps;
+			const size_t advanceSteps = srcProgress / divisor;
+			srcProgress %= divisor;
+			// going past the post end iterator is undefined
+			const size_t endDiff = std::distance(srcIt, srcChain.end());
+			srcIt += std::min(advanceSteps, endDiff);
 		}
 	}
 

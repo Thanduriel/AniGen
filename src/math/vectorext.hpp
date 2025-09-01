@@ -24,6 +24,15 @@ namespace math {
 
 	// Euclidean squared distance
 	template<typename T>
+	T distSq(const sf::Vector2<T>& a, const sf::Vector2<T>& b)
+	{
+		const sf::Vector2<T> dif = a - b;
+
+		return dot(dif, dif);
+	}
+
+
+	template<typename T>
 	T distSq(const sf::Vector3<T>& a, const sf::Vector3<T>& b)
 	{
 		const sf::Vector3<T> dif = a - b;
