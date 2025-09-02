@@ -75,7 +75,23 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 
 	// does not need a kernel
 	if (type == SimilarityType::Chain)
+	{
+		std::string orientationString;
+		ss >> orientationString;
+		if (orientationString.empty())
+			orientationString = "direction";
+		const auto orientationIt = std::find(ORIENTATION_HEURISTICS_NAMES.begin(), ORIENTATION_HEURISTICS_NAMES.end(), orientationString);
+
+		if (orientationIt == ORIENTATION_HEURISTICS_NAMES.end())
+		{
+			std::cerr << "[Error] The provided orientation metric \""
+				<< orientationString << "\" is unknown.\n";
+			std::abort();
+		}
+		kernel.resize(sf::Vector2u(std::distance(ORIENTATION_HEURISTICS_NAMES.begin(), orientationIt), 0));
+
 		return {type, kernel};
+	}
 
 	// parse kernel specification
 	if (!ss || sizeSplit == std::string::npos)
@@ -123,6 +139,8 @@ struct MapMaker
 			std::abort();
 		}
 
+		auto orientationHeuristic = static_cast<OrientationHeuristic>(kernel.size.x);
+
 		for (int i = 0; i < numFrames; ++i)
 		{
 			std::cout << "Creating map for frame " << i << "...\n";
@@ -135,7 +153,8 @@ struct MapMaker
 			TransferMap map = constructMap(referenceSprites[1], 
 				targetSheets[1].frames[i],
 				srcZoneMap,
-				dstZoneMap);
+				dstZoneMap,
+				orientationHeuristic);
 			if (minBorder)
 				map = extendMap(map, originalSize, originalPosition);
 

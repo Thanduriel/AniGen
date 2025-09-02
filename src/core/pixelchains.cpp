@@ -56,7 +56,8 @@ PixelChain makePixelChain(const ZoneMap::PixelList& _pixels,
 TransferMap constructMap(const sf::Image& _referenceSprite, 
 	const sf::Image& _targetSprite,
 	const ZoneMap& _srcZoneMap,
-	const ZoneMap& _dstZoneMap)
+	const ZoneMap& _dstZoneMap,
+	OrientationHeuristic _orientationHeuristic)
 {
 	const sf::Vector2u size = _referenceSprite.getSize();
 	TransferMap transferMap(size);
@@ -87,17 +88,39 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 		const PixelChain srcChain = makePixelChain(srcPixels, transferMap);
 		PixelChain dstChain = makePixelChain(dstPixels, transferMap);
 
-		// determine orientation by finding the closest front/back pair
-		const std::array<size_t, 4> chainDistances = {
-			math::distSq(srcChain.front(), dstChain.front()),
-			math::distSq(srcChain.front(), dstChain.back()),
-			math::distSq(srcChain.back(), dstChain.front()),
-			math::distSq(srcChain.back(), dstChain.back())
+		bool orientationMatch = true;
+		switch (_orientationHeuristic)
+		{
+		case OrientationHeuristic::MinDistance:
+		{
+			// determine orientation by finding the closest front/back pair
+			const std::array<size_t, 4> chainDistances = {
+				math::distSq(srcChain.front(), dstChain.front()),
+				math::distSq(srcChain.front(), dstChain.back()),
+				math::distSq(srcChain.back(), dstChain.front()),
+				math::distSq(srcChain.back(), dstChain.back())
+			};
+			auto minDist = std::min_element(chainDistances.begin(), chainDistances.end());
+			auto minDistIdx = std::distance(chainDistances.begin(), minDist); 
+			// the closest ends of the chains already match
+			orientationMatch = minDistIdx == 0 || minDistIdx == 3;
+			break;
+		}
+		case OrientationHeuristic::Direction:
+		{
+			const Vector2u v1 = srcChain.front() - srcChain.back();
+			const Vector2u v2 = dstChain.front() - dstChain.back();
+
+			// current orientation is in the same direction
+			orientationMatch = math::dot(v1, v2);
+			break;
+		}
+		default:
+			std::cout << "[Warning] Invalid orientation heuristic.\n";
+			break;
 		};
-		auto minDist = std::min_element(chainDistances.begin(), chainDistances.end());
-		auto minDistIdx = std::distance(chainDistances.begin(), minDist); 
 		// reverse one chain to get same orientation in both
-		if (minDistIdx == 1 || minDistIdx == 2)
+		if (!orientationMatch)
 			std::reverse(dstChain.begin(), dstChain.end());
 
 		// Build map by walking the chains rescaled by the length ratio
