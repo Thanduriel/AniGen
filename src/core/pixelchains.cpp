@@ -104,7 +104,9 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 		// to arrive at the end at the same time. We use int arithmetic
 		// to avoid any rounding. +1 To reach the last pixel of the src chain.
 		const size_t speed = srcChain.size() - 1;
-		const size_t divisor = dstChain.size() -1;
+		// Prevent division by 0. In that case we only do a single iteration
+		// so the actual value does not matter beyond being non-zero.
+		const size_t divisor = dstChain.size() > 1 ? dstChain.size() - 1 : 1;
 		size_t srcProgress = 0;
 		auto srcIt = srcChain.begin();
 		for (auto dstPixel : dstChain)
