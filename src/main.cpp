@@ -146,8 +146,8 @@ struct MapMaker
 			std::cout << "Creating map for frame " << i << "...\n";
 
 				// create zonemaps for both sprites
-			const ZoneMap srcZoneMap(referenceSprites[0], targetSheets[0].frames[i]);
-			const ZoneMap dstZoneMap(targetSheets[0].frames[i], referenceSprites[0]);
+			const ZoneMap srcZoneMap(referenceSprites[0], targetSheets[0].frames[i], true);
+			const ZoneMap dstZoneMap(targetSheets[0].frames[i], referenceSprites[0], true);
 
 			// index 1 because we always expect a zonemap
 			TransferMap map = constructMap(referenceSprites[1], 

@@ -8,35 +8,40 @@
 
 using namespace math;
 
-ZoneMap::ZoneMap(const sf::Image& _src, const sf::Image& _dst)
-	: m_dst(_dst)
+ZoneMap::ZoneMap(const sf::Image& _src, const sf::Image& _dst, bool _ignoreAlpha)
+	: m_dst(_dst),
+	m_ignoreMask(_ignoreAlpha ? 0xffffff00 : 0xffffffff)
 {
 	const sf::Vector2u size = _src.getSize();
 	for (unsigned y = 0; y < size.y; ++y)
 	{
 		for (unsigned x = 0; x < size.x; ++x)
 		{
-			m_srcZones[_src.getPixel(x, y).toInteger()].push_back(x + y * size.x);
+			const sf::Uint32 col = maskColor(_src.getPixel(x, y).toInteger());
+			m_srcZones[col].push_back(x + y * size.x);
 		}
 	}
 }
 
 const ZoneMap::PixelList& ZoneMap::operator()(unsigned x, unsigned y) const
 {
-	auto it = m_srcZones.find(m_dst.getPixel(x, y).toInteger());
-	return it != m_srcZones.end() ? it->second : m_defaultZone;
+	return (*this)(m_dst.getPixel(x, y));
 }
 
 const ZoneMap::PixelList& ZoneMap::operator()(sf::Color _color) const
 {
-	auto it = m_srcZones.find(_color.toInteger());
-	return it != m_srcZones.end() ? it->second : m_defaultZone;
+	return (*this)(_color.toInteger());
 }
 
 const ZoneMap::PixelList& ZoneMap::operator()(sf::Uint32 _color) const
 {
-	auto it = m_srcZones.find(_color);
+	auto it = m_srcZones.find(maskColor(_color));
 	return it != m_srcZones.end() ? it->second : m_defaultZone;
+}
+
+sf::Uint32 ZoneMap::maskColor(sf::Uint32 _col) const
+{
+	return _col & m_ignoreMask;
 }
 
 // ************************************************************* //

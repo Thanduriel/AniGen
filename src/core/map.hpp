@@ -9,7 +9,7 @@
 class ZoneMap
 {
 public:
-	ZoneMap(const sf::Image& _src, const sf::Image& _dst);
+	ZoneMap(const sf::Image& _src, const sf::Image& _dst, bool _ignoreAlpha = false);
 
 	using PixelList = std::vector<size_t>;
 	const PixelList& operator()(unsigned x, unsigned y) const;
@@ -21,9 +21,12 @@ public:
 
 	const sf::Image& getDst() const { return m_dst; };
 private:
+	sf::Uint32 maskColor(sf::Uint32 _col) const;
+
 	std::unordered_map<sf::Uint32, PixelList> m_srcZones;
 	const sf::Image& m_dst;
 	PixelList m_defaultZone; //< empty zone returned if a color does not exist in the reference
+	sf::Uint32 m_ignoreMask;
 };
 
 // each element contains the coordinates for the source

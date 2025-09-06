@@ -53,6 +53,36 @@ PixelChain makePixelChain(const ZoneMap::PixelList& _pixels,
 	return pixelChain;
 }
 
+bool ensureOrientation(PixelChain& _pixelChain, const sf::Image& _sprite)
+{
+	auto startIt = _pixelChain.end();
+	for (auto it = _pixelChain.begin(); it != _pixelChain.end(); ++it)
+	{
+		if (_sprite.getPixel(it->x, it->y).a == 155)
+		{
+			if (startIt != _pixelChain.end()) 
+			{
+				std::cout << "[Warning] Encountered multiple starting points in a chain.\n";
+			} 
+			else
+				startIt = it;
+		}
+	}
+	// not found
+	if (startIt == _pixelChain.end())
+		return false;
+	// found but invalid
+	if (startIt != _pixelChain.begin())
+	{
+		std::cout << "[Warning] Pixel chain start marker is not at one of the ends.\n";
+		return false;
+	}
+	// found but orientation is wrong
+	if (startIt == _pixelChain.end() - 1)
+		std::reverse(_pixelChain.begin(), _pixelChain.end());
+	return true;
+}
+
 TransferMap constructMap(const sf::Image& _referenceSprite, 
 	const sf::Image& _targetSprite,
 	const ZoneMap& _srcZoneMap,
@@ -85,43 +115,50 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 			continue;
 		}
 
-		const PixelChain srcChain = makePixelChain(srcPixels, transferMap);
+		PixelChain srcChain = makePixelChain(srcPixels, transferMap);
 		PixelChain dstChain = makePixelChain(dstPixels, transferMap);
 
-		bool orientationMatch = true;
-		switch (_orientationHeuristic)
-		{
-		case OrientationHeuristic::MinDistance:
-		{
-			// determine orientation by finding the closest front/back pair
-			const std::array<size_t, 4> chainDistances = {
-				math::distSq(srcChain.front(), dstChain.front()),
-				math::distSq(srcChain.front(), dstChain.back()),
-				math::distSq(srcChain.back(), dstChain.front()),
-				math::distSq(srcChain.back(), dstChain.back())
-			};
-			auto minDist = std::min_element(chainDistances.begin(), chainDistances.end());
-			auto minDistIdx = std::distance(chainDistances.begin(), minDist); 
-			// the closest ends of the chains already match
-			orientationMatch = minDistIdx == 0 || minDistIdx == 3;
-			break;
-		}
-		case OrientationHeuristic::Direction:
-		{
-			const Vector2u v1 = srcChain.front() - srcChain.back();
-			const Vector2u v2 = dstChain.front() - dstChain.back();
+		const bool srcIsMarked = ensureOrientation(srcChain, _referenceSprite);
+		const bool dstIsMarked = ensureOrientation(dstChain, _targetSprite);
 
-			// current orientation is in the same direction
-			orientationMatch = math::dot(v1, v2);
-			break;
+		// at least one chain does not have a start marker
+		if (!srcIsMarked || !dstIsMarked)
+		{
+			bool orientationMatch = true;
+			switch (_orientationHeuristic)
+			{
+			case OrientationHeuristic::MinDistance:
+			{
+				// determine orientation by finding the closest front/back pair
+				const std::array<size_t, 4> chainDistances = {
+					math::distSq(srcChain.front(), dstChain.front()),
+					math::distSq(srcChain.front(), dstChain.back()),
+					math::distSq(srcChain.back(), dstChain.front()),
+					math::distSq(srcChain.back(), dstChain.back())
+				};
+				auto minDist = std::min_element(chainDistances.begin(), chainDistances.end());
+				auto minDistIdx = std::distance(chainDistances.begin(), minDist); 
+				// the closest ends of the chains already match
+				orientationMatch = minDistIdx == 0 || minDistIdx == 3;
+				break;
+			}
+			case OrientationHeuristic::Direction:
+			{
+				const Vector2u v1 = srcChain.front() - srcChain.back();
+				const Vector2u v2 = dstChain.front() - dstChain.back();
+
+				// current orientation is in the same direction
+				orientationMatch = math::dot(v1, v2);
+				break;
+			}
+			default:
+				std::cout << "[Warning] Invalid orientation heuristic.\n";
+				break;
+			};
+			// reverse one chain to get same orientation in both
+			if (!orientationMatch)
+				std::reverse(dstChain.begin(), dstChain.end());
 		}
-		default:
-			std::cout << "[Warning] Invalid orientation heuristic.\n";
-			break;
-		};
-		// reverse one chain to get same orientation in both
-		if (!orientationMatch)
-			std::reverse(dstChain.begin(), dstChain.end());
 
 		// Build map by walking the chains rescaled by the length ratio
 		// to arrive at the end at the same time. We use int arithmetic
