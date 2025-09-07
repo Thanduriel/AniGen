@@ -1,11 +1,12 @@
 #include "pixelchains.hpp"
 #include "../math/vectorext.hpp"
+#include "../colors.hpp"
 #include <unordered_set>
 #include <array>
 
-using PixelChain = std::deque<sf::Vector2u>;
-
 using sf::Vector2u;
+// use deque because we build chains starting from a random point
+using PixelChain = std::deque<Vector2u>;
 
 // @param _refMap A matrix of correct size to compute x,y coordinates of pixels.
 PixelChain makePixelChain(const ZoneMap::PixelList& _pixels, 
@@ -46,23 +47,31 @@ PixelChain makePixelChain(const ZoneMap::PixelList& _pixels,
 			pixelChain.push_back(remainingPixels[idx]);
 		}
 
-		// todo: do swap erase since order is not important
-		remainingPixels.erase(remainingPixels.begin() + idx);
+		// remove pixel by moving it to the end since the order does not matter
+		remainingPixels[idx] = remainingPixels.back();
+		remainingPixels.pop_back();
 	}
 
 	return pixelChain;
 }
 
+// Marks the start pixel of a chain.
+constexpr sf::Uint8 START_ALPHA = 155;
+// Looks for a start marker and reverses the chain if necessary.
+// @return True if the chain (now) starts with the marked pixel.
 bool ensureOrientation(PixelChain& _pixelChain, const sf::Image& _sprite)
 {
 	auto startIt = _pixelChain.end();
 	for (auto it = _pixelChain.begin(); it != _pixelChain.end(); ++it)
 	{
-		if (_sprite.getPixel(it->x, it->y).a == 155)
+		if (const sf::Color col = _sprite.getPixel(it->x, it->y); col.a == START_ALPHA)
 		{
+			// already found one
 			if (startIt != _pixelChain.end()) 
 			{
-				std::cout << "[Warning] Encountered multiple starting points in a chain.\n";
+				std::cout << "[Warning] Encountered multiple starting points in a chain with color ("
+					<< col << "). First marker is at " << startIt->x << ", " << startIt->y
+					<< ". Additional marker found at " << it->x << ", " << it->y << ".\n";
 			} 
 			else
 				startIt = it;
@@ -90,17 +99,13 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 	OrientationHeuristic _orientationHeuristic)
 {
 	const sf::Vector2u size = _referenceSprite.getSize();
-	TransferMap transferMap(size);
 	// init empty map
-	for (unsigned y = 0; y < size.y; ++y)
-	{
-		for (unsigned x = 0; x < size.x; ++x)
-			transferMap(x, y) = Vector2u(0, 0);
-	}
+	TransferMap transferMap(size, Vector2u(0, 0));
 
 	// iterate over zonemaps of src and dst simultaneously
 	for (const auto& [zoneColor, dstPixels] : _dstZoneMap)
 	{
+		// ignore the empty exterior
 		if (zoneColor == 0) 
 			continue;
 
@@ -108,10 +113,8 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 		if (srcPixels.empty())
 		{
 			const sf::Color col(zoneColor);
-			std::cout << "[Warning] Zone map is invalid. The zone color ("
-				<< (int)col.r << ", " << (int)col.g << ", "
-				<< (int)col.b << ", " << (int)col.a << ")"
-				<< " was not found in the reference zone map. Skipping the current zone.\n";
+			std::cout << "[Warning] Zone map is invalid. The zone color (" << col
+				<< ") (alpha channel is ignored) was not found in the reference zone map. Skipping the current zone.\n";
 			continue;
 		}
 
@@ -124,6 +127,13 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 		// at least one chain does not have a start marker
 		if (!srcIsMarked || !dstIsMarked)
 		{
+			if (!srcIsMarked && dstIsMarked)
+			{
+				const sf::Color col(zoneColor);
+				std::cout << "[Warning] Found a chain start marker in the target but not in the source zone with color (" << col 
+					<< ") (alpha channel is ignored).\n";
+			}
+
 			bool orientationMatch = true;
 			switch (_orientationHeuristic)
 			{
@@ -152,8 +162,8 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 				break;
 			}
 			default:
-				std::cout << "[Warning] Invalid orientation heuristic.\n";
-				break;
+				std::cerr << "[Error] Invalid orientation heuristic.\n";
+				std::abort();
 			};
 			// reverse one chain to get same orientation in both
 			if (!orientationMatch)

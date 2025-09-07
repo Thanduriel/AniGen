@@ -109,6 +109,7 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 	return { type, kernel };
 }
 
+// Functor which holds all the processing state.
 struct MapMaker
 {
 	bool zoneMapFlag;
@@ -160,7 +161,6 @@ struct MapMaker
 
 			file << map;
 		}
-
 	}
 
 	template<typename Similarity, template<typename> class Group, typename MakeSimilarity = int, bool WithId = false>
@@ -169,6 +169,7 @@ struct MapMaker
 		for (int i = 0; i < numFrames; ++i)
 		{
 			std::cout << "Creating map for frame " << i << "...\n";
+
 			using SimilarityT = std::conditional_t<WithId,
 				MaskCompositionDistance<IdentityDistance, Similarity>,
 				Similarity>;
@@ -208,13 +209,13 @@ struct MapMaker
 				numThreads,
 				originalPosition);
 
+			if (debugFlag)
+				confidenceImgs.emplace_back(matToImage(confidence));
+
 			if (minBorder)
 				map = extendMap(map, originalSize, originalPosition);
 
 			file << map;
-
-			if (debugFlag)
-				confidenceImgs.emplace_back(matToImage(confidence));
 		}
 	}
 };
@@ -406,7 +407,7 @@ int main(int argc, char* argv[])
 			break;
 		case SimilarityType::MinBlur: maker.run<BlurDistance, GroupMinDistance>();
 			break;
-		case SimilarityType::MinEqualityRotInv:maker.run< RotInvariantKernelDistance, GroupMinDistance>();
+		case SimilarityType::MinEqualityRotInv:maker.run<RotInvariantKernelDistance, GroupMinDistance>();
 			break;
 		case SimilarityType::Chain: maker.runChains();
 			break;

@@ -4,7 +4,7 @@
 sf::Color HSVtoRGB(const HSV& in)
 {
 	sf::Color out;
-	if (in.s <= 0.0) // < is bogus, just shuts up warnings
+	if (in.s <= 0.0f) // < is bogus, just shuts up warnings
 	{
 		out.r = static_cast<sf::Uint8>(in.v / 360.f);
 		out.g = static_cast<sf::Uint8>(in.v * 255);
@@ -58,14 +58,14 @@ sf::Color HSVtoRGB(const HSV& in)
 	return out;
 }
 
-sf::Uint8 average(const sf::Color& _color)
+sf::Uint8 average(sf::Color _color)
 {
 	return static_cast<sf::Uint8>((static_cast<int>(_color.r) 
 		+ static_cast<int>(_color.g) 
 		+ static_cast<int>(_color.b)) / 3);
 }
 
-sf::Color absDist(const sf::Color& _a, const sf::Color& _b)
+sf::Color absDist(sf::Color _a, sf::Color _b)
 {
 	sf::Color dif;
 
@@ -75,4 +75,11 @@ sf::Color absDist(const sf::Color& _a, const sf::Color& _b)
 	dif.a = 255;
 
 	return dif;
+}
+
+std::ostream& operator<<(std::ostream& _out, sf::Color _col)
+{
+	_out << static_cast<int>(_col.r) << ", " << static_cast<int>(_col.g) << ", "
+		 << static_cast<int>(_col.b) << ", " << static_cast<int>(_col.a);
+	return _out;
 }

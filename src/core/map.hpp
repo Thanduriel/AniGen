@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 #include "../math/matrix.hpp"
 #include "../utils.hpp"
+#include "../colors.hpp"
 
 #include <unordered_map>
 
@@ -74,10 +75,8 @@ auto constructMap(const DistanceMeasure& _distanceMeasure,
 					if (zone.empty())
 					{
 						const sf::Color col = (*_zoneMap).getDst().getPixel(x, y);
-						std::cout << "[Warning] Zone map is invalid. The color ("
-							<< (int)col.r << ", " << (int)col.g << ", "
-							<< (int)col.b << ", " << (int)col.a << ")"
-							<< " at (" << _originOffset.x + x << ", " << _originOffset.y + y << ") does not exist in the reference.\n";
+						std::cout << "[Warning] Zone map is invalid. The color (" << col
+							<< ") at (" << _originOffset.x + x << ", " << _originOffset.y + y << ") does not exist in the reference.\n";
 					}
 					else
 					{

@@ -11,6 +11,8 @@ struct HSV
 
 sf::Color HSVtoRGB(const HSV& _color);
 
-sf::Uint8 average(const sf::Color& _color);
+sf::Uint8 average(sf::Color _color);
 
-sf::Color absDist(const sf::Color& _a, const sf::Color& _b);
+sf::Color absDist(sf::Color _a, sf::Color _b);
+
+std::ostream& operator<<(std::ostream& _out, sf::Color _color);
