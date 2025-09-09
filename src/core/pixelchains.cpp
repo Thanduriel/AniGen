@@ -79,16 +79,20 @@ bool ensureOrientation(PixelChain& _pixelChain, const sf::Image& _sprite)
 	}
 	// not found
 	if (startIt == _pixelChain.end())
-		return false;
-	// found but invalid
-	if (startIt != _pixelChain.begin())
 	{
-		std::cout << "[Warning] Pixel chain start marker is not at one of the ends.\n";
+	//	std::cout << "[Warning] No start marker found.\n";
 		return false;
 	}
 	// found but orientation is wrong
 	if (startIt == _pixelChain.end() - 1)
 		std::reverse(_pixelChain.begin(), _pixelChain.end());
+	else if (startIt != _pixelChain.begin()) // found but invalid
+	{
+		const sf::Color col = _sprite.getPixel(startIt->x, startIt->y);
+		std::cout << "[Warning] Pixel chain start marker is not at one of the ends in a chain with color ("
+					<< col << "). The marker was found at " << startIt->x << ", " << startIt->y << ".\n";
+		return false;
+	}
 	return true;
 }
 

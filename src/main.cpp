@@ -150,9 +150,9 @@ struct MapMaker
 			const ZoneMap srcZoneMap(referenceSprites[0], targetSheets[0].frames[i], true);
 			const ZoneMap dstZoneMap(targetSheets[0].frames[i], referenceSprites[0], true);
 
-			// index 1 because we always expect a zonemap
-			TransferMap map = constructMap(referenceSprites[1], 
-				targetSheets[1].frames[i],
+			// we dont use the actual target
+			TransferMap map = constructMap(referenceSprites[0], 
+				targetSheets[0].frames[i],
 				srcZoneMap,
 				dstZoneMap,
 				orientationHeuristic);

@@ -79,7 +79,10 @@ sf::Color absDist(sf::Color _a, sf::Color _b)
 
 std::ostream& operator<<(std::ostream& _out, sf::Color _col)
 {
-	_out << static_cast<int>(_col.r) << ", " << static_cast<int>(_col.g) << ", "
-		 << static_cast<int>(_col.b) << ", " << static_cast<int>(_col.a);
+	_out << std::hex << _col.toInteger() << std::dec
+		<< " r:" << static_cast<int>(_col.r) 
+		<< ", g:" << static_cast<int>(_col.g) 
+		<< ", b:" << static_cast<int>(_col.b) 
+		<< ", a:" << static_cast<int>(_col.a);
 	return _out;
 }
