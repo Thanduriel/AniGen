@@ -1,7 +1,7 @@
 #pragma once
 
 #include "map.hpp"
-#include "../spritesheet.hpp"
+#include "../utils/spritesheet.hpp"
 
 #include <SFML/System/Vector2.hpp>
 #include <deque>

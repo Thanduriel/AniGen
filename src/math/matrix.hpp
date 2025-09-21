@@ -3,7 +3,7 @@
 #include <SFML/System/Vector2.hpp>
 #include <cassert>
 #include <iostream>
-#include "../utils.hpp"
+#include "../utils/utils.hpp"
 
 namespace math {
 	// dynamic sized matrix

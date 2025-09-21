@@ -2,8 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 #include "../math/matrix.hpp"
-#include "../utils.hpp"
-#include "../colors.hpp"
+#include "../utils/utils.hpp"
+#include "../utils/colors.hpp"
 
 #include <unordered_map>
 

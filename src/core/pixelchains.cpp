@@ -1,6 +1,6 @@
 #include "pixelchains.hpp"
 #include "../math/vectorext.hpp"
-#include "../colors.hpp"
+#include "../utils/colors.hpp"
 #include <unordered_set>
 #include <array>
 
@@ -150,8 +150,8 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 					math::distSq(srcChain.back(), dstChain.front()),
 					math::distSq(srcChain.back(), dstChain.back())
 				};
-				auto minDist = std::min_element(chainDistances.begin(), chainDistances.end());
-				auto minDistIdx = std::distance(chainDistances.begin(), minDist); 
+				const auto minDist = std::min_element(chainDistances.begin(), chainDistances.end());
+				const auto minDistIdx = std::distance(chainDistances.begin(), minDist); 
 				// the closest ends of the chains already match
 				orientationMatch = minDistIdx == 0 || minDistIdx == 3;
 				break;
@@ -162,7 +162,7 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 				const Vector2u v2 = dstChain.front() - dstChain.back();
 
 				// current orientation is in the same direction
-				orientationMatch = math::dot(v1, v2);
+				orientationMatch = math::dot(v1, v2) > 0;
 				break;
 			}
 			default:

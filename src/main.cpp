@@ -1,17 +1,12 @@
 #include <random>
 #include <chrono>
-#include <iostream>
 #include <thread>
-#include <fstream>
 #include <filesystem>
 #include <array>
 
 #include <args.hxx>
-#include "spritesheet.hpp"
-#include "core/map.hpp"
-#include "core/pixelsimilarity.hpp"
-#include "core/pixelchains.hpp"
-#include "colors.hpp"
+#include "mapmaker.hpp"
+#include "utils/colors.hpp"
 #include "eval/eval.hpp"
 #ifdef WITH_TORCH
 #include "core/optim.hpp"
@@ -108,117 +103,6 @@ std::pair< SimilarityType, Matrix<float>> parseSimilarityArg(const std::string& 
 
 	return { type, kernel };
 }
-
-// Functor which holds all the processing state.
-struct MapMaker
-{
-	bool zoneMapFlag;
-	int numFrames;
-	std::vector<sf::Image>& referenceSprites;
-	std::vector<SpriteSheet>& targetSheets;
-	float discardThreshold;
-	unsigned numThreads;
-	int minBorder;
-	sf::Vector2u originalSize;
-	sf::Vector2u originalPosition;
-	std::ofstream& file;
-	bool debugFlag;
-	std::vector<sf::Image>& confidenceImgs;
-	const Matrix<float>& kernel;
-
-	void runChains()
-	{
-		// input validation
-		if (!zoneMapFlag)
-		{
-			std::cerr << "[Error] Distance measure \"chains\" requires a zone map consisting of single pixel lines.\n";
-			std::abort();
-		}
-		if (referenceSprites.size() != 2 || targetSheets.size() != 2)
-		{
-			std::cerr << "[Error] Invalid configuration for distance measure \"chains\". Expected two input sprites and two output sheets (zonemap + regular pair).";
-			std::abort();
-		}
-
-		auto orientationHeuristic = static_cast<OrientationHeuristic>(kernel.size.x);
-
-		for (int i = 0; i < numFrames; ++i)
-		{
-			std::cout << "Creating map for frame " << i << "...\n";
-
-				// create zonemaps for both sprites
-			const ZoneMap srcZoneMap(referenceSprites[0], targetSheets[0].frames[i], true);
-			const ZoneMap dstZoneMap(targetSheets[0].frames[i], referenceSprites[0], true);
-
-			// we dont use the actual target
-			TransferMap map = constructMap(referenceSprites[0], 
-				targetSheets[0].frames[i],
-				srcZoneMap,
-				dstZoneMap,
-				orientationHeuristic);
-			if (minBorder)
-				map = extendMap(map, originalSize, originalPosition);
-
-			file << map;
-		}
-	}
-
-	template<typename Similarity, template<typename> class Group, typename MakeSimilarity = int, bool WithId = false>
-	void run(const MakeSimilarity& _othSimilarity = 0)
-	{
-		for (int i = 0; i < numFrames; ++i)
-		{
-			std::cout << "Creating map for frame " << i << "...\n";
-
-			using SimilarityT = std::conditional_t<WithId,
-				MaskCompositionDistance<IdentityDistance, Similarity>,
-				Similarity>;
-			using GroupSimilarity = Group<Similarity>;
-			std::vector<SimilarityT> distances;
-			// make zone map
-			std::unique_ptr<ZoneMap> zoneMap;
-			if (zoneMapFlag)
-				zoneMap = std::make_unique<ZoneMap>(referenceSprites[0], targetSheets[0].frames[i]);
-
-			for (size_t j = zoneMap ? 1 : 0; j < targetSheets.size(); ++j)
-			{
-				if constexpr (WithId)
-					distances.emplace_back(IdentityDistance(referenceSprites[j], targetSheets[j].frames[i], kernel),
-						Similarity(referenceSprites[j], targetSheets[j].frames[i], kernel));
-				else
-					distances.emplace_back(referenceSprites[j], targetSheets[j].frames[i], kernel);
-			}
-
-			auto constructGroupSim = [&]()
-			{
-				if constexpr (std::is_constructible_v<GroupSimilarity, std::vector<SimilarityT>, float>)
-					return GroupSimilarity(std::move(distances), discardThreshold);
-				else
-					return GroupSimilarity(std::move(distances));
-			};
-			auto constructFullSim = [&]()
-			{
-				if constexpr (std::is_same_v<MakeSimilarity, int>)
-					return constructGroupSim();
-				else
-					return SumDistance(constructGroupSim(), _othSimilarity(i));
-			};
-
-			auto [map, confidence] = constructMap(constructFullSim(),
-				zoneMap.get(),
-				numThreads,
-				originalPosition);
-
-			if (debugFlag)
-				confidenceImgs.emplace_back(matToImage(confidence));
-
-			if (minBorder)
-				map = extendMap(map, originalSize, originalPosition);
-
-			file << map;
-		}
-	}
-};
 
 int main(int argc, char* argv[])
 {
@@ -465,7 +349,7 @@ int main(int argc, char* argv[])
 		{
 			if (!std::filesystem::exists(name))
 			{
-				std::cerr << "[Warning] Skipping the map "
+				std::cout << "[Warning] Skipping the map "
 					<< name << " as the file could not be found.\n";
 				continue;
 			}
@@ -481,7 +365,7 @@ int main(int argc, char* argv[])
 				sheetMaps.pop_back();
 			if (sheetMaps.empty())
 			{
-				std::cerr << "[Warning] The file " << name << " does not contain a valid map.\n";
+				std::cout << "[Warning] The file " << name << " does not contain a valid map.\n";
 				transferMaps.pop_back();
 			}
 		}
@@ -513,7 +397,7 @@ int main(int argc, char* argv[])
 							<< map.size.x << ", " << map.size.y 
 							<< ") can not be applied to an image with size ("
 							<< reference.getSize().x << ", " << reference.getSize().y << ")";
-						abort();
+						std::abort();
 					}
 					else
 						sheet.frames.emplace_back(applyMap(map, reference));

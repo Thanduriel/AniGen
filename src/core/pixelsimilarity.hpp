@@ -2,7 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 #include "../math/matrix.hpp"
-#include "../utils.hpp"
+#include "../utils/utils.hpp"
 
 class DistanceBase
 {

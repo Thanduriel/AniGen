@@ -1,7 +1,7 @@
 #include "map.hpp"
-#include "../utils.hpp"
-#include "../spritesheet.hpp"
-#include "../colors.hpp"
+#include "../utils/utils.hpp"
+#include "../utils/spritesheet.hpp"
+#include "../utils/colors.hpp"
 
 #include <assert.h>
 #include <iostream>
@@ -215,7 +215,7 @@ std::istream& operator>>(std::istream& _in, TransferMap& _transferMap)
 		{
 			if (_in.eof())
 			{
-				std::cerr << "[Warning] Expected more elements in transfer map.\n";
+				std::cout << "[Warning] Expected more elements in transfer map.\n";
 				break;
 			}
 
