@@ -8,32 +8,39 @@
 
 using namespace math;
 
-ZoneMap::ZoneMap(const sf::Image& _src, const sf::Image& _dst, bool _ignoreAlpha)
+
+ZoneMap::ZoneMap(const sf::Image& _src, const sf::Image& _dst, bool _withAlphaMarks)
 	: m_dst(_dst),
-	m_ignoreMask(_ignoreAlpha ? 0xffffff00 : 0xffffffff)
+	m_ignoreMask(_withAlphaMarks ? 0xffffff00 : 0xffffffff)
 {
 	const sf::Vector2u size = _src.getSize();
 	for (unsigned y = 0; y < size.y; ++y)
 	{
 		for (unsigned x = 0; x < size.x; ++x)
 		{
-			const sf::Uint32 col = maskColor(_src.getPixel(x, y).toInteger());
-			m_srcZones[col].push_back(x + y * size.x);
+			const sf::Color col = _src.getPixel(x, y);
+			const sf::Uint32 colMasked = maskColor(_src.getPixel(x, y).toInteger());
+			PixelList& pixelList = m_srcZones[colMasked];
+			m_srcZones[colMasked].push_back(x + y * size.x);
+			if (_withAlphaMarks && col.a != 255)
+			{
+				pixelList.marks.push_back({pixelList.size()-1, col.a});
+			}
 		}
 	}
 }
 
-const ZoneMap::PixelList& ZoneMap::operator()(unsigned x, unsigned y) const
+const PixelList& ZoneMap::operator()(unsigned x, unsigned y) const
 {
 	return (*this)(m_dst.getPixel(x, y));
 }
 
-const ZoneMap::PixelList& ZoneMap::operator()(sf::Color _color) const
+const PixelList& ZoneMap::operator()(sf::Color _color) const
 {
 	return (*this)(_color.toInteger());
 }
 
-const ZoneMap::PixelList& ZoneMap::operator()(sf::Uint32 _color) const
+const PixelList& ZoneMap::operator()(sf::Uint32 _color) const
 {
 	auto it = m_srcZones.find(maskColor(_color));
 	return it != m_srcZones.end() ? it->second : m_defaultZone;
@@ -42,6 +49,35 @@ const ZoneMap::PixelList& ZoneMap::operator()(sf::Uint32 _color) const
 sf::Uint32 ZoneMap::maskColor(sf::Uint32 _col) const
 {
 	return _col & m_ignoreMask;
+}
+
+// ************************************************************* //
+void ErrorImageWrapper::draw(const PixelList& _pixels, sf::Color _color, bool _drawMarks)
+{
+	using namespace sf;
+	if (_color != Color::Black)
+		m_isEmpty = false;
+
+	if (!_pixels.marks.empty() || _drawMarks)
+		_color.a = 255;
+
+	math::ArrayShape2D shape { m_image.getSize() };
+	for (const size_t p : _pixels)
+	{
+		const Vector2u pos = shape.index(p);
+		m_image.setPixel(pos.x, pos.y, _color);
+	}
+
+	if (_drawMarks)
+	{
+		for (PixelList::Mark mark : _pixels.marks)
+		{
+			const Vector2u pos = shape.index(_pixels[mark.idx]);
+			sf::Color col = _color;
+			col.a = mark.alpha;
+			m_image.setPixel(pos.x, pos.y, col);
+		}
+	}
 }
 
 // ************************************************************* //

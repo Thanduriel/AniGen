@@ -272,6 +272,7 @@ int main(int argc, char* argv[])
 			minBorder,
 			originalSize,
 			originalPosition,
+			mapName,
 			file,
 			debugFlag,
 			confidenceImgs,

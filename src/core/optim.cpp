@@ -69,7 +69,7 @@ namespace nn {
 		}
 
 		// *************************************************************** //
-		ColorEmbedding::ColorEmbedding(const sf::Image& _src, const ZoneMap::PixelList& _pixels)
+		ColorEmbedding::ColorEmbedding(const sf::Image& _src, const PixelList& _pixels)
 		{
 			torch::Tensor tensor;
 			for (size_t ind : _pixels)
@@ -99,7 +99,7 @@ namespace nn {
 
 		InterpolatedImage::InterpolatedImage(const sf::Image& _src,
 			const ColorEmbedding& _embedding,
-			const ZoneMap::PixelList& _pixels,
+			const PixelList& _pixels,
 			unsigned _radius)
 			: m_embeddedColors(_src.getSize()),
 			m_embeddingDim(_embedding.dimension())
@@ -235,7 +235,7 @@ namespace nn {
 		struct Task
 		{
 			sf::Uint32 col;
-			const ZoneMap::PixelList& pixels;
+			const PixelList& pixels;
 		};
 
 		std::vector<Task> tasks;
@@ -252,7 +252,7 @@ namespace nn {
 					return;
 
 				const sf::Uint32 col = tasks.back().col;
-				const ZoneMap::PixelList& pixelsSrc = tasks.back().pixels;
+				const PixelList& pixelsSrc = tasks.back().pixels;
 				tasks.pop_back();
 				lock.unlock();
 

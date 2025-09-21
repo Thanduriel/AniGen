@@ -54,7 +54,7 @@ namespace nn {
 		class ColorEmbedding
 		{
 		public:
-			ColorEmbedding(const sf::Image& _src, const ZoneMap::PixelList& _pixels);
+			ColorEmbedding(const sf::Image& _src, const PixelList& _pixels);
 
 			torch::Tensor get(sf::Color _color) const;
 			size_t dimension() const { return m_embedding.size(); }
@@ -67,7 +67,7 @@ namespace nn {
 		public:
 			InterpolatedImage(const sf::Image& _src, 
 				const ColorEmbedding& _embedding, 
-				const ZoneMap::PixelList& _pixels,
+				const PixelList& _pixels,
 				unsigned _radius = 3);
 
 		//	torch::Tensor getPixel(float x, float y) const;

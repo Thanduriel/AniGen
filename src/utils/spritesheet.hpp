@@ -11,6 +11,7 @@ public:
 	SpriteSheet(std::vector<sf::Image> _frames) : frames(std::move(_frames)) {}
 
 	void crop(const sf::IntRect& _rect);
+	void extend(const sf::Vector2u& _size, const sf::Vector2u& _position);
 	// set color of all pixels with alpha 0 to black
 	void applyZeroAlpha();
 
@@ -27,6 +28,7 @@ sf::IntRect computeMinRect(std::vector<const sf::Image*> _sheets, unsigned _minB
 sf::IntRect computeMinRect(std::vector<const SpriteSheet*> _sheets, unsigned _minBorder = 0);
 
 sf::Image cropImage(const sf::Image& _img, const sf::IntRect& _rect);
+sf::Image extendImage(const sf::Image& _img, const sf::Vector2u& _size, const sf::Vector2u& _position);
 
 // set color of all pixels with alpha 0 to black
 void setZeroAlpha(sf::Image& _img);

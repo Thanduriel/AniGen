@@ -6,9 +6,30 @@
 #include "../utils/utils.hpp"
 
 namespace math {
+	struct ArrayShape2D
+	{
+		sf::Vector2u size;
+
+		// 1D index of an element in the underlying array
+		size_t flatIndex(unsigned x, unsigned y) const
+		{
+			return x + static_cast<size_t>(y) * size.x;
+		}
+		size_t flatIndex(const sf::Vector2u& _index) const
+		{
+			return _index.x + static_cast<size_t>(_index.y) * size.x;
+		}
+
+		sf::Vector2u index(size_t flat) const
+		{
+			return sf::Vector2u(static_cast<unsigned>(flat % size.x),
+				static_cast<unsigned>(flat / size.x));
+		}
+	};
+
 	// dynamic sized matrix
 	template<typename T>
-	struct Matrix
+	struct Matrix : public ArrayShape2D
 	{
 		Matrix() = default;
 		explicit Matrix(const sf::Vector2u& _size, const T& _default = {})
@@ -37,22 +58,6 @@ namespace math {
 
 		const T& operator()(const sf::Vector2u& _index) const { return elements[flatIndex(_index)]; }
 		T& operator()(const sf::Vector2u& _index) { return elements[flatIndex(_index)]; }
-
-		// 1D index of an element in the underlying array
-		size_t flatIndex(unsigned x, unsigned y) const
-		{
-			return x + static_cast<size_t>(y) * size.x;
-		}
-		size_t flatIndex(const sf::Vector2u& _index) const
-		{
-			return _index.x + static_cast<size_t>(_index.y) * size.x;
-		}
-
-		sf::Vector2u index(size_t flat) const
-		{
-			return sf::Vector2u(static_cast<unsigned>(flat % size.x),
-				static_cast<unsigned>(flat / size.x));
-		}
 
 		auto begin() const { return elements.begin(); }
 		auto end() const { return elements.end(); }
@@ -128,7 +133,6 @@ namespace math {
 			return _in;
 		}
 
-		sf::Vector2u size;
 		std::vector<T> elements;
 	};
 

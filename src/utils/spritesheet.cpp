@@ -1,4 +1,5 @@
 #include "spritesheet.hpp"
+#include "../math/matrix.hpp"
 
 SpriteSheet::SpriteSheet(const std::string& _file, int _numFrames)
 {
@@ -40,9 +41,17 @@ std::pair<sf::Vector2u, sf::Vector2u> cropRect(const sf::Image& _image)
 
 void SpriteSheet::crop(const sf::IntRect& _rect)
 {
-	for (auto& frame : frames)
+	for (sf::Image& frame : frames)
 	{
 		frame = cropImage(frame, _rect);
+	}
+}
+
+void SpriteSheet::extend(const sf::Vector2u& _size, const sf::Vector2u& _position)
+{
+	for (sf::Image& frame : frames)
+	{
+		frame = extendImage(frame, _size, _position);
 	}
 }
 
@@ -122,6 +131,7 @@ sf::IntRect computeMinRect(std::vector<const SpriteSheet*> _sheets, unsigned _mi
 	return sf::IntRect(sf::Vector2i(pos), sf::Vector2i(newSize));
 }
 
+// ************************************************************* //
 sf::Image cropImage(const sf::Image& _img, const sf::IntRect& _rect)
 {
 	sf::Image croped;
@@ -131,6 +141,16 @@ sf::Image cropImage(const sf::Image& _img, const sf::IntRect& _rect)
 	return croped;
 }
 
+sf::Image extendImage(const sf::Image& _img, const sf::Vector2u& _size, const sf::Vector2u& _position)
+{
+	sf::Image extended;
+	extended.create(_size.x, _size.y, sf::Color(0,0,0,0));
+	extended.copy(_img, _position.x, _position.y);
+	
+	return extended;
+}
+
+// ************************************************************* //
 void setZeroAlpha(sf::Image& _img)
 {
 	const sf::Vector2u size = _img.getSize();
@@ -152,5 +172,7 @@ sf::Color getPixelFlat(const sf::Image& _img, size_t _flat)
 
 sf::Vector2u getIndex(const sf::Image& _img, size_t _flat)
 {
-	return sf::Vector2u(_flat % _img.getSize().x, _flat / _img.getSize().x);
+	math::ArrayShape2D shape{_img.getSize()};
+	return shape.index(_flat);
+	//return sf::Vector2u(_flat % _img.getSize().x, _flat / _img.getSize().x);
 }

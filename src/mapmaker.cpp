@@ -1,5 +1,6 @@
 #include "mapmaker.hpp"
 
+// ************************************************************* //
 void MapMaker::runChains()
 {
 	// input validation
@@ -15,11 +16,9 @@ void MapMaker::runChains()
 
 	const auto orientationHeuristic = static_cast<OrientationHeuristic>(kernel.size.x);
 
-	auto makeFn = [&](int i) 
+	auto makeFn = [&](int i, ErrorImageWrapper& errorRefImage, ErrorImageWrapper& errorTargetImage) 
 	{
-		std::cout << "Creating map for frame " << i << "...\n";
-
-			// create zonemaps for both sprites
+		// create zonemaps for both sprites
 		const ZoneMap srcZoneMap(referenceSprites[0], targetSheets[0].frames[i], true);
 		const ZoneMap dstZoneMap(targetSheets[0].frames[i], referenceSprites[0], true);
 
@@ -28,7 +27,10 @@ void MapMaker::runChains()
 			targetSheets[0].frames[i],
 			srcZoneMap,
 			dstZoneMap,
-			orientationHeuristic);
+			orientationHeuristic,
+			errorRefImage,
+			errorTargetImage
+		);
 
 		return map;
 	};

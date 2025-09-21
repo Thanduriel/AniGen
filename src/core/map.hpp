@@ -7,12 +7,24 @@
 
 #include <unordered_map>
 
+class PixelList : public std::vector<size_t>
+{
+public:
+	struct Mark 
+	{
+		size_t idx; //< (*this)[idx] to get flat idx
+		sf::Uint8 alpha;
+	};
+
+	std::vector<Mark> marks;
+};
+
 class ZoneMap
 {
 public:
-	ZoneMap(const sf::Image& _src, const sf::Image& _dst, bool _ignoreAlpha = false);
+	ZoneMap(const sf::Image& _src, const sf::Image& _dst, bool _withAlphaMarks = false);
 
-	using PixelList = std::vector<size_t>;
+	//using PixelList = std::vector<size_t>;
 	const PixelList& operator()(unsigned x, unsigned y) const;
 	const PixelList& operator()(sf::Color _col) const;
 	const PixelList& operator()(sf::Uint32 _col) const;
@@ -28,6 +40,18 @@ private:
 	const sf::Image& m_dst;
 	PixelList m_defaultZone; //< empty zone returned if a color does not exist in the reference
 	sf::Uint32 m_ignoreMask;
+};
+
+class ErrorImageWrapper
+{
+	sf::Image& m_image;
+	bool m_isEmpty = true;
+public:
+	ErrorImageWrapper(sf::Image& _dst) : m_image(_dst) {}
+
+	void draw(const PixelList& _pixels, sf::Color _color, bool _drawMarks = false);
+	void draw(sf::Vector2u _pos, sf::Color _color);
+	bool isEmpty() const { return m_isEmpty; }
 };
 
 // each element contains the coordinates for the source
@@ -71,7 +95,7 @@ auto constructMap(const DistanceMeasure& _distanceMeasure,
 
 				if (_zoneMap)
 				{
-					const ZoneMap::PixelList& zone = (*_zoneMap)(x,y);
+					const PixelList& zone = (*_zoneMap)(x,y);
 					if (zone.empty())
 					{
 						const sf::Color col = (*_zoneMap).getDst().getPixel(x, y);

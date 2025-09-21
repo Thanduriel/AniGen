@@ -21,6 +21,7 @@ struct MapMaker
 	int minBorder;
 	sf::Vector2u originalSize;
 	sf::Vector2u originalPosition;
+	std::string mapName;
 	std::ofstream& file;
 	bool debugFlag;
 	std::vector<sf::Image>& confidenceImgs;
@@ -33,7 +34,7 @@ struct MapMaker
 	template<typename Similarity, template<typename> class Group, typename MakeSimilarity = int, bool WithId = false>
 	void run(const MakeSimilarity& _othSimilarity = 0)
 	{
-		auto makeFn = [&](int i) {
+		auto makeFn = [&](int i, ErrorImageWrapper& errorRefImage, ErrorImageWrapper& errorTargetImage) {
 			using SimilarityT = std::conditional_t<WithId,
 				MaskCompositionDistance<IdentityDistance, Similarity>,
 				Similarity>;
@@ -87,16 +88,46 @@ private:
 	template<typename MakeFn>
 	void makeForEachFrame(MakeFn _makeFn)
 	{
+		const sf::Vector2u s = referenceSprites.front().getSize();
+		sf::Image errorRefImg;
+		errorRefImg.create(s.x, s.y, sf::Color(0,0,0,0));
+		ErrorImageWrapper errorRefWrapper(errorRefImg);
+
+		SpriteSheet errorSheet;
+		errorSheet.frames.resize(numFrames, errorRefImg);
+
+		bool highlightedErrors = false;
+
 		for (int i = 0; i < numFrames; ++i)
 		{
 			std::cout << "Creating map for frame " << i << "...\n";
 
-			TransferMap map = _makeFn(i);
+			ErrorImageWrapper errorTargetWrapper(errorSheet.frames[i]);
+
+			TransferMap map = _makeFn(i, errorRefWrapper, errorTargetWrapper);
 
 			if (minBorder)
 				map = extendMap(map, originalSize, originalPosition);
-
 			file << map;
+
+			highlightedErrors |= !errorTargetWrapper.isEmpty();
+		}
+
+		if (!errorRefWrapper.isEmpty())
+		{
+			errorRefImg = extendImage(errorRefImg, originalSize, originalPosition);
+			const std::string fileName = mapName + ".ref_issues.png";
+			std::cout << "Issues where found in the reference input. Creating \"" << fileName << "\" to highlight them.\n";
+			errorRefImg.saveToFile(fileName);
+		}
+
+		if (highlightedErrors)
+		{
+			errorSheet.extend(originalSize, originalPosition);
+			
+			const std::string fileName = mapName + ".target_issues.png";
+			std::cout << "Issues where found in the target inputs. Creating \"" << fileName << "\" to highlight them.\n";
+			errorSheet.save(fileName);
 		}
 	}
 };

@@ -3,13 +3,14 @@
 #include "../utils/colors.hpp"
 #include <unordered_set>
 #include <array>
+#include <optional>
 
 using sf::Vector2u;
 // use deque because we build chains starting from a random point
 using PixelChain = std::deque<Vector2u>;
 
 // @param _refMap A matrix of correct size to compute x,y coordinates of pixels.
-PixelChain makePixelChain(const ZoneMap::PixelList& _pixels, 
+PixelChain makePixelChain(const PixelList& _pixels, 
 	const TransferMap& _refMap)
 {
 	std::vector<Vector2u> remainingPixels;
@@ -72,7 +73,7 @@ bool ensureOrientation(PixelChain& _pixelChain, const sf::Image& _sprite)
 				std::cout << "[Warning] Encountered multiple starting points in a chain with color ("
 					<< col << "). First marker is at " << startIt->x << ", " << startIt->y
 					<< ". Additional marker found at " << it->x << ", " << it->y << ".\n";
-			} 
+			}
 			else
 				startIt = it;
 		}
@@ -100,7 +101,9 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 	const sf::Image& _targetSprite,
 	const ZoneMap& _srcZoneMap,
 	const ZoneMap& _dstZoneMap,
-	OrientationHeuristic _orientationHeuristic)
+	OrientationHeuristic _orientationHeuristic,
+	ErrorImageWrapper& _errorRefImage,
+	ErrorImageWrapper& _errorTargetImage)
 {
 	const sf::Vector2u size = _referenceSprite.getSize();
 	// init empty map
@@ -113,12 +116,14 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 		if (zoneColor == 0) 
 			continue;
 
+		const sf::Color col(zoneColor);
+
 		const auto& srcPixels = _srcZoneMap(zoneColor);
 		if (srcPixels.empty())
 		{
-			const sf::Color col(zoneColor);
 			std::cout << "[Warning] Zone map is invalid. The zone color (" << col
 				<< ") (alpha channel is ignored) was not found in the reference zone map. Skipping the current zone.\n";
+			_errorTargetImage.draw(dstPixels, col);
 			continue;
 		}
 
@@ -128,14 +133,23 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 		const bool srcIsMarked = ensureOrientation(srcChain, _referenceSprite);
 		const bool dstIsMarked = ensureOrientation(dstChain, _targetSprite);
 
+		// ensureOrientation can also return false if no markers found which
+		// is currently not treated as an error. Therefore also check if there
+		// are marks available.
+		if (!srcPixels.marks.empty() && !srcIsMarked)
+			_errorRefImage.draw(srcPixels, col, true);
+		if (!dstPixels.marks.empty() && !srcIsMarked)
+			_errorTargetImage.draw(dstPixels, col, true);
+
 		// at least one chain does not have a start marker
 		if (!srcIsMarked || !dstIsMarked)
 		{
 			if (!srcIsMarked && dstIsMarked)
 			{
-				const sf::Color col(zoneColor);
 				std::cout << "[Warning] Found a chain start marker in the target but not in the source zone with color (" << col 
 					<< ") (alpha channel is ignored).\n";
+				_errorRefImage.draw(srcPixels, col, true);
+				_errorTargetImage.draw(dstPixels, col, true);
 			}
 
 			bool orientationMatch = true;
