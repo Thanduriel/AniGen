@@ -156,7 +156,11 @@ int main(int argc, char* argv[])
 		{ "crop" }, 0);
 	args::ValueFlag<float> discardTreshold(createArgs, "discard_threshold",
 		"discards distance values during (create) with multiple sprites if they are larger than mean + threshold; distance values are in the range [0,1]",
-		{ "threshold" }, 1.0);
+		{ "threshold" }, 1.f);
+	
+	args::ValueFlag<float> chainMaxTimeInSec(createArgs, "chain_search_time",
+		"maximum time in [s] to search for optimal chain during (create); special values: \"0\" - no search, use greedy algorithm instead; <0 - no time limit",
+		{ "chain_search_time" }, 1.f);
 
 	args::GlobalOptions globals(parser, arguments);
 
@@ -276,7 +280,8 @@ int main(int argc, char* argv[])
 			file,
 			debugFlag,
 			confidenceImgs,
-			kernel};
+			kernel,
+			args::get(chainMaxTimeInSec)};
 
 		switch (type)
 		{

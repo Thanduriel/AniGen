@@ -4,13 +4,13 @@
 #include <unordered_set>
 #include <array>
 #include <optional>
+#include <chrono>
 
 using sf::Vector2u;
-// use deque because we build chains starting from a random point
-using PixelChain = std::deque<Vector2u>;
+using PixelChain = std::vector<Vector2u>;
 
 // @param _refMap A matrix of correct size to compute x,y coordinates of pixels.
-PixelChain makePixelChain(const PixelList& _pixels, 
+PixelChain makePixelChainGreedy(const PixelList& _pixels, 
 	const TransferMap& _refMap)
 {
 	std::vector<Vector2u> remainingPixels;
@@ -18,7 +18,8 @@ PixelChain makePixelChain(const PixelList& _pixels,
 	for (size_t p : _pixels)
 		remainingPixels.emplace_back(_refMap.index(p));
 
-	PixelChain pixelChain {remainingPixels.back()};
+	// use deque because we build chains starting from a random point
+	std::deque<Vector2u> pixelChain {remainingPixels.back()};
 	remainingPixels.pop_back();
 
 	std::vector<size_t> frontDists;
@@ -53,9 +54,153 @@ PixelChain makePixelChain(const PixelList& _pixels,
 		remainingPixels.pop_back();
 	}
 
+	return PixelChain(pixelChain.begin(), pixelChain.end());
+}
+
+// ************************************************************* //
+struct ChainTreeNode
+{
+	Vector2u pos;
+	float length;
+	std::vector<bool> remainingPixels;
+	const ChainTreeNode* parent;
+	std::vector<ChainTreeNode> childs;
+};
+
+static ChainTreeNode makeTreeNode(Vector2u _pos, const std::vector<bool>& _remaining, size_t _idx, ChainTreeNode* _parent)
+{
+	std::vector<bool> remaining = _remaining;
+	remaining[_idx] = false;
+	const float length = _parent ? _parent->length + std::sqrt(static_cast<float>(math::distSq(_parent->pos, _pos))) : 0.f;
+	
+	return ChainTreeNode {
+		_pos,
+		length,	
+		std::move(remaining),
+		_parent
+	};
+}
+
+// @param _refMap A matrix of correct size to compute x,y coordinates of pixels.
+// @outParam _hadTimout Signals the caller that the search has not finished because
+//		the time limit was reached. 
+PixelChain makePixelChain(const PixelList& _pixels, 
+	const TransferMap& _refMap,
+	float _maxTimeInSec,
+	bool& _hadTimeout)
+{
+	std::vector<Vector2u> positions;
+	positions.reserve(_pixels.size());
+	for (size_t p : _pixels)
+		positions.push_back(_refMap.index(p));
+
+	const size_t start_mark_idx = _pixels.marks.front().idx;
+
+	ChainTreeNode tree = makeTreeNode(positions[start_mark_idx], 
+		std::vector<bool>(_pixels.size(), true), 
+		start_mark_idx,
+		nullptr);
+
+	std::vector<ChainTreeNode*> activeNodes { &tree };
+
+	ChainTreeNode* shortestPath = nullptr;
+
+	using namespace std::chrono;
+	const auto startTime = high_resolution_clock::now();
+
+	int iterations = 0;
+	while (!activeNodes.empty())
+	{
+		// search takes too long (worst case is in O(n^8)
+		++iterations;
+		if (iterations % 65536 == 0)
+		{
+			const auto currentTime = high_resolution_clock::now();
+			const auto t = duration<float>(currentTime - startTime);
+			if (t.count() >= _maxTimeInSec) 
+			{
+				_hadTimeout = true;
+				break;
+			}
+		}
+
+		ChainTreeNode& node = *activeNodes.back();
+		activeNodes.pop_back();
+		
+		unsigned minDist = std::numeric_limits<unsigned>::max();
+		size_t minIdx = std::numeric_limits<size_t>::max();
+		int numRemaining = 0;
+
+		for (size_t i = 0; i < node.remainingPixels.size(); ++i)
+		{
+			if (node.remainingPixels[i])
+			{
+				++numRemaining;
+				// 1-ring neighborhood
+				const unsigned dSq = math::distSq(node.pos, positions[i]);
+				if (dSq <= 2)
+					node.childs.push_back(makeTreeNode(positions[i], node.remainingPixels, i, &node));
+				else if (dSq < minDist)
+				{
+					minDist = dSq;
+					minIdx = i;
+				}
+			}
+		}
+
+		// pruning: stop path if it is already too long
+		if (shortestPath && shortestPath->length <= node.length + numRemaining)
+			continue;
+
+		// choose closest pixel if there are no direct neighbor
+		if (node.childs.empty() && minIdx < _pixels.size())
+		{
+			node.childs.push_back(makeTreeNode(positions[minIdx], node.remainingPixels, minIdx, &node));
+			/*for (size_t i = 0; i < node.remainingPixels.size(); ++i)
+			{
+				if (node.remainingPixels[i])
+					node.childs.push_back(makeTreeNode(positions[i], node.remainingPixels, i, &node));
+			}*/
+		}
+
+		// chain is finished
+		if (node.childs.empty())
+		{
+			if (!shortestPath || shortestPath->length > node.length)
+				shortestPath = &node;
+		} 
+		else
+		{
+			for (ChainTreeNode& n : node.childs)
+				activeNodes.push_back(&n);
+		}
+	}
+
+	// reconstruct chain
+	PixelChain pixelChain;
+	pixelChain.reserve(_pixels.size());
+
+	const ChainTreeNode* node = shortestPath;
+	// timeout before the first path was finished extremely unlikely
+	if (!node)
+	{
+		pixelChain = makePixelChainGreedy(_pixels, _refMap);
+	}
+	else
+	{
+		while (node)
+		{
+			pixelChain.push_back(node->pos);
+			node = node->parent;
+		}
+		// the root node should be the start
+		std::reverse(pixelChain.begin(), pixelChain.end());
+	}
+
 	return pixelChain;
 }
 
+// ************************************************************* //
 // Marks the start pixel of a chain.
 constexpr sf::Uint8 START_ALPHA = 155;
 // Looks for a start marker and reverses the chain if necessary.
@@ -97,14 +242,19 @@ bool ensureOrientation(PixelChain& _pixelChain, const sf::Image& _sprite)
 	return true;
 }
 
+// ************************************************************* //
 TransferMap constructMap(const sf::Image& _referenceSprite, 
 	const sf::Image& _targetSprite,
 	const ZoneMap& _srcZoneMap,
 	const ZoneMap& _dstZoneMap,
 	OrientationHeuristic _orientationHeuristic,
 	ErrorImageWrapper& _errorRefImage,
-	ErrorImageWrapper& _errorTargetImage)
+	ErrorImageWrapper& _errorTargetImage,
+	float _chainMaxTimeInSec)
 {
+	if (_chainMaxTimeInSec < 0.f)
+		_chainMaxTimeInSec = std::numeric_limits<float>::max();
+		
 	const sf::Vector2u size = _referenceSprite.getSize();
 	// init empty map
 	TransferMap transferMap(size, Vector2u(0, 0));
@@ -127,8 +277,24 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 			continue;
 		}
 
-		PixelChain srcChain = makePixelChain(srcPixels, transferMap);
-		PixelChain dstChain = makePixelChain(dstPixels, transferMap);
+		bool timeout = false;
+		PixelChain srcChain = srcPixels.marks.empty() || _chainMaxTimeInSec == 0.f
+			? makePixelChainGreedy(srcPixels, transferMap) 
+			: makePixelChain(srcPixels, transferMap, _chainMaxTimeInSec, timeout);
+		if (timeout)
+		{
+			timeout = false;
+			_errorRefImage.draw(srcPixels, col, false);
+			std::cout << "[Warning] Timeout during reference chain construction. Results might not be deterministic. The chain is probably too wide.\n";
+		}
+		PixelChain dstChain = dstPixels.marks.empty() || _chainMaxTimeInSec == 0.f
+			? makePixelChainGreedy(dstPixels, transferMap) 
+			: makePixelChain(dstPixels, transferMap, _chainMaxTimeInSec, timeout);
+		if (timeout)
+		{
+			_errorTargetImage.draw(dstPixels, col, false);
+			std::cout << "[Warning] Timeout during target chain construction. Results might not be deterministic. The chain is probably too wide.\n";
+		}
 
 		const bool srcIsMarked = ensureOrientation(srcChain, _referenceSprite);
 		const bool dstIsMarked = ensureOrientation(dstChain, _targetSprite);

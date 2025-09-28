@@ -29,7 +29,8 @@ void MapMaker::runChains()
 			dstZoneMap,
 			orientationHeuristic,
 			errorRefImage,
-			errorTargetImage
+			errorTargetImage,
+			chainMaxTimeInSec
 		);
 
 		return map;

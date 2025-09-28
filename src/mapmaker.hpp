@@ -26,6 +26,7 @@ struct MapMaker
 	bool debugFlag;
 	std::vector<sf::Image>& confidenceImgs;
 	const math::Matrix<float>& kernel;
+	float chainMaxTimeInSec;
 
 	// run with pixel chains
 	void runChains();

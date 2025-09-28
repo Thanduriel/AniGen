@@ -27,4 +27,5 @@ TransferMap constructMap(const sf::Image& _referenceSprite,
 	const ZoneMap& _dstZoneMap,
 	OrientationHeuristic _orientationHeuristic,
 	ErrorImageWrapper& _errorRefImage,
-	ErrorImageWrapper& _errorTargetImage);
+	ErrorImageWrapper& _errorTargetImage,
+	float _chainMaxTimeInSec);
